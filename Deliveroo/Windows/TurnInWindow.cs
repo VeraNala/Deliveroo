@@ -70,8 +70,6 @@ internal sealed class TurnInWindow : Window
         }
     }
 
-    public string Debug { get; set; }
-
     public override void OnOpen()
     {
         SelectedItemId = _configuration.SelectedPurchaseItemId;
@@ -101,7 +99,7 @@ internal sealed class TurnInWindow : Window
             ImGui.Spacing();
             ImGui.BeginDisabled(state);
 
-            List<string> comboValues = new() { "Buy Nothing" };
+            List<string> comboValues = new() { GcRewardItem.None.Name };
             foreach (var itemId in _configuration.ItemsAvailableForPurchase)
             {
                 var name = _gcRewardsCache.Rewards[grandCompany].First(x => x.ItemId == itemId).Name;
@@ -127,7 +125,7 @@ internal sealed class TurnInWindow : Window
         ImGui.Unindent(27);
 
         ImGui.Separator();
-        ImGui.Text($"Debug (State): {Debug}");
+        ImGui.Text($"Debug (State): {_plugin.CurrentStage}");
     }
 
     private unsafe int GetItemCount(uint itemId)

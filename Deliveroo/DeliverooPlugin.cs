@@ -76,7 +76,7 @@ public sealed class DeliverooPlugin : IDalamudPlugin
 
     public string Name => "Deliveroo";
 
-    private Stage CurrentStage
+    internal Stage CurrentStage
     {
         get => _currentStageInternal;
         set
@@ -85,7 +85,6 @@ public sealed class DeliverooPlugin : IDalamudPlugin
             {
                 PluginLog.Information($"Changing stage from {_currentStageInternal} to {value}");
                 _currentStageInternal = value;
-                _turnInWindow.Debug = CurrentStage.ToString();
             }
         }
     }
@@ -657,7 +656,7 @@ public sealed class DeliverooPlugin : IDalamudPlugin
             (FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject*)obj.Address, false);
     }
 
-    private enum Stage
+    internal enum Stage
     {
         TargetPersonnelOfficer,
         OpenGcSupply,

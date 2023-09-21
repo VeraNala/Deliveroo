@@ -8,7 +8,7 @@ internal sealed class GcRewardItem : IEquatable<GcRewardItem>
     public static GcRewardItem None { get; } = new GcRewardItem
     {
         ItemId = 0,
-        Name = "Buy Nothing",
+        Name = "---",
         GrandCompany = GrandCompany.None,
         Tier = RewardTier.First,
         SubCategory = RewardSubCategory.Unknown,
