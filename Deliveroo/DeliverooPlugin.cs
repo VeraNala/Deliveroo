@@ -441,8 +441,7 @@ public sealed class DeliverooPlugin : IDalamudPlugin
             // GrandCompanyItem + 151 = [byte] (unchecked) inventory slot in container
             // GrandCompanyItem + 152 = [short] 512 (always)?
             // int itemId = Marshal.ReadInt32(new nint(&item) + 132);
-            PluginLog.Verbose(
-                $" {Marshal.ReadInt32(new nint(&item) + 132)};;;; {MemoryHelper.ReadSeString(&item.ItemName)}, {new nint(&agent->ItemArray[i]):X8}, {item.SealReward}, {item.IsTurnInAvailable}");
+            // PluginLog.Verbose($" {Marshal.ReadInt32(new nint(&item) + 132)};;;; {MemoryHelper.ReadSeString(&item.ItemName)}, {new nint(&agent->ItemArray[i]):X8}, {item.SealReward}, {item.IsTurnInAvailable}");
         }
 
         return list.OrderByDescending(x => x.SealsWithBonus)
