@@ -40,6 +40,7 @@ public class DeliverooPlugin : IDalamudPlugin
 
     private Stage _currentStageInternal = Stage.Stop;
     private DateTime _continueAt = DateTime.MinValue;
+    private SealPurchaseOption? _selectedPurchaseOption;
 
     public DeliverooPlugin(DalamudPluginInterface pluginInterface, ChatGui chatGui, GameGui gameGui,
         Framework framework, ClientState clientState, ObjectTable objectTable, TargetManager targetManager)
@@ -70,6 +71,7 @@ public class DeliverooPlugin : IDalamudPlugin
             {
                 PluginLog.Information($"Changing stage from {_currentStageInternal} to {value}");
                 _currentStageInternal = value;
+                _turnInWindow.Debug = CurrentStage.ToString();
             }
         }
     }
@@ -86,7 +88,6 @@ public class DeliverooPlugin : IDalamudPlugin
         {
             _turnInWindow.IsOpen = true;
             _turnInWindow.Multiplier = GetSealMultiplier();
-            _turnInWindow.CurrentVentureCount = GetCurrentVentureCount();
 
             if (!_turnInWindow.State)
             {
@@ -97,9 +98,21 @@ public class DeliverooPlugin : IDalamudPlugin
             if (_turnInWindow.State && CurrentStage == Stage.Stop)
             {
                 CurrentStage = Stage.TargetPersonnelOfficer;
+                _selectedPurchaseOption = _turnInWindow.SelectedOption;
+                if (_selectedPurchaseOption.ItemId == 0)
+                    _selectedPurchaseOption = null;
+                else if (GetCurrentSealCount() > GetSealCap() / 2)
+                    CurrentStage = Stage.TargetQuartermaster;
+
+                if (TryGetAddonByName<AddonGrandCompanySupplyList>("GrandCompanySupplyList", out var gcSupplyList) &&
+                    IsAddonReady(&gcSupplyList->AtkUnitBase))
+                    CurrentStage = Stage.SelectItemToTurnIn;
+
+                if (TryGetAddonByName<AtkUnitBase>("GrandCompanyExchange", out var gcExchange) &&
+                    IsAddonReady(gcExchange))
+                    CurrentStage = Stage.CloseGcExchange;
             }
 
-            _turnInWindow.Debug = CurrentStage.ToString();
             switch (CurrentStage)
             {
                 case Stage.TargetPersonnelOfficer:
@@ -159,6 +172,17 @@ public class DeliverooPlugin : IDalamudPlugin
 
                     break;
                 case Stage.TurnInSelected:
+                    if (TryGetAddonByName<AddonSelectYesno>("SelectYesno", out var addonSelectYesno) &&
+                        IsAddonReady(&addonSelectYesno->AtkUnitBase))
+                    {
+                        if (MemoryHelper.ReadSeString(&addonSelectYesno->PromptText->NodeText).ToString()
+                            .StartsWith("Do you really want to trade a high-quality item?"))
+                        {
+                            addonSelectYesno->AtkUnitBase.FireCallbackInt(0);
+                            break;
+                        }
+                    }
+
                     if (TryGetAddonByName<AddonGrandCompanySupplyReward>("GrandCompanySupplyReward",
                             out var addonSupplyReward) && IsAddonReady(&addonSupplyReward->AtkUnitBase))
                     {
@@ -188,9 +212,17 @@ public class DeliverooPlugin : IDalamudPlugin
                 case Stage.CloseGcSupply:
                     if (SelectSelectString(3))
                     {
-                        // you can occasionally get a 'not enough seals' warning lol
-                        _continueAt = DateTime.Now.AddSeconds(1);
-                        CurrentStage = Stage.TargetQuartermaster;
+                        if (_selectedPurchaseOption == null)
+                        {
+                            _turnInWindow.State = false;
+                            CurrentStage = Stage.Stop;
+                        }
+                        else
+                        {
+                            // you can occasionally get a 'not enough seals' warning lol
+                            _continueAt = DateTime.Now.AddSeconds(1);
+                            CurrentStage = Stage.TargetQuartermaster;
+                        }
                     }
 
                     break;
@@ -198,7 +230,12 @@ public class DeliverooPlugin : IDalamudPlugin
                 case Stage.CloseGcSupplyThenStop:
                     if (SelectSelectString(3))
                     {
-                        if (GetCurrentSealCount() <= 2000 + 200)
+                        if (_selectedPurchaseOption == null)
+                        {
+                            _turnInWindow.State = false;
+                            CurrentStage = Stage.Stop;
+                        }
+                        else if (GetCurrentSealCount() <= 2000 + _selectedPurchaseOption!.SealCost)
                         {
                             _turnInWindow.State = false;
                             CurrentStage = Stage.Stop;
@@ -234,7 +271,7 @@ public class DeliverooPlugin : IDalamudPlugin
                         var selectRank = stackalloc AtkValue[]
                         {
                             new() { Type = ValueType.Int, Int = 1 },
-                            new() { Type = ValueType.Int, Int = 0 /* position within list */ },
+                            new() { Type = ValueType.Int, Int = (int)_selectedPurchaseOption!.Rank },
                             new() { Type = 0, Int = 0 },
                             new() { Type = 0, Int = 0 },
                             new() { Type = 0, Int = 0 },
@@ -259,13 +296,7 @@ public class DeliverooPlugin : IDalamudPlugin
                         var selectType = stackalloc AtkValue[]
                         {
                             new() { Type = ValueType.Int, Int = 2 },
-                            /*
-                             * 2 = weapons
-                             * 3 = armor
-                             * 1 = materiel
-                             * 4 = materials
-                             */
-                            new() { Type = ValueType.Int, Int = 1 /* position within list */ },
+                            new() { Type = ValueType.Int, Int = (int)_selectedPurchaseOption!.Type },
                             new() { Type = 0, Int = 0 },
                             new() { Type = 0, Int = 0 },
                             new() { Type = 0, Int = 0 },
@@ -288,20 +319,24 @@ public class DeliverooPlugin : IDalamudPlugin
                     if (TryGetAddonByName<AtkUnitBase>("GrandCompanyExchange", out var addonExchange) &&
                         IsAddonReady(addonExchange))
                     {
-                        int venturesToBuy = (GetCurrentSealCount() - 2000) / 200;
-                        venturesToBuy = Math.Min(venturesToBuy, 65000 - GetCurrentVentureCount());
-                        if (venturesToBuy == 0)
+                        int toBuy = (GetCurrentSealCount() - 2000) / _selectedPurchaseOption!.SealCost;
+                        bool isVenture = _selectedPurchaseOption!.ItemId == 21072;
+                        if (isVenture)
+                            toBuy = Math.Min(toBuy, 65000 - GetCurrentVentureCount());
+
+                        if (toBuy == 0)
                         {
+                            _turnInWindow.State = false;
                             CurrentStage = Stage.Stop;
                             break;
                         }
 
-                        _chatGui.Print($"Buying {venturesToBuy} ventures...");
+                        _chatGui.Print($"Buying {toBuy}x {_selectedPurchaseOption!.Name}...");
                         var selectReward = stackalloc AtkValue[]
                         {
                             new() { Type = ValueType.Int, Int = 0 },
-                            new() { Type = ValueType.Int, Int = 0 /* position within list?? */ },
-                            new() { Type = ValueType.Int, Int = venturesToBuy },
+                            new() { Type = ValueType.Int, Int = _selectedPurchaseOption!.Position },
+                            new() { Type = ValueType.Int, Int = toBuy },
                             new() { Type = 0, Int = 0 },
                             new() { Type = ValueType.Bool, Byte = 1 },
                             new() { Type = ValueType.Bool, Byte = 0 },
@@ -310,12 +345,21 @@ public class DeliverooPlugin : IDalamudPlugin
                             new() { Type = 0, Int = 0 }
                         };
                         addonExchange->FireCallback(9, selectReward);
-                        _continueAt = DateTime.Now.AddSeconds(1);
-                        CurrentStage = Stage.CloseGcExchange;
+                        _continueAt = DateTime.Now.AddSeconds(0.5);
+                        CurrentStage = Stage.ConfirmReward;
                     }
 
                     break;
                 }
+
+                case Stage.ConfirmReward:
+                    if (SelectSelectYesno(0))
+                    {
+                        CurrentStage = Stage.CloseGcExchange;
+                        _continueAt = DateTime.Now.AddSeconds(0.5);
+                    }
+
+                    break;
 
                 case Stage.CloseGcExchange:
                 {
@@ -521,6 +565,18 @@ public class DeliverooPlugin : IDalamudPlugin
         return false;
     }
 
+    private unsafe bool SelectSelectYesno(int choice)
+    {
+        if (TryGetAddonByName<AddonSelectYesno>("SelectYesno", out var addonSelectYesno) &&
+            IsAddonReady(&addonSelectYesno->AtkUnitBase))
+        {
+            addonSelectYesno->AtkUnitBase.FireCallbackInt(choice);
+            return true;
+        }
+
+        return false;
+    }
+
     private decimal GetSealMultiplier()
     {
         // priority seal allowance
@@ -563,6 +619,7 @@ public class DeliverooPlugin : IDalamudPlugin
         SelectRewardRank,
         SelectRewardType,
         SelectReward,
+        ConfirmReward,
         CloseGcExchange,
 
         Stop,
