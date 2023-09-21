@@ -1,9 +1,9 @@
 ﻿using System.Runtime.InteropServices;
 using FFXIVClientStructs.FFXIV.Client.System.String;
 
-namespace Deliveroo;
+namespace Deliveroo.GameData;
 
-internal sealed class GcItem
+internal sealed class TurnInItem
 {
     public required int ItemId { get; init; }
     public required string Name { get; init; }
