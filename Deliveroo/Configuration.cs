@@ -11,4 +11,12 @@ internal sealed class Configuration : IPluginConfiguration
     public uint SelectedPurchaseItemId { get; set; } = 0;
 
     public int ReservedSealCount { get; set; } = 0;
+    public ItemFilterType ItemFilter { get; set; } = ItemFilterType.HideGearSetItems;
+
+    public enum ItemFilterType
+    {
+        ShowAllItems = 0,
+        HideGearSetItems = 1,
+        HideArmouryChestItems = 2,
+    }
 }

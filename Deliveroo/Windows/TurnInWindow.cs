@@ -1,7 +1,9 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using Dalamud.Interface;
 using Dalamud.Interface.Colors;
+using Dalamud.Interface.Components;
 using Dalamud.Interface.Windowing;
 using Dalamud.Plugin;
 using Deliveroo.GameData;
@@ -17,16 +19,18 @@ internal sealed class TurnInWindow : Window
     private readonly DalamudPluginInterface _pluginInterface;
     private readonly Configuration _configuration;
     private readonly GcRewardsCache _gcRewardsCache;
+    private readonly ConfigWindow _configWindow;
     private int _selectedAutoBuyItem = 0;
 
     public TurnInWindow(DeliverooPlugin plugin, DalamudPluginInterface pluginInterface, Configuration configuration,
-        GcRewardsCache gcRewardsCache)
+        GcRewardsCache gcRewardsCache, ConfigWindow configWindow)
         : base("GC Delivery###DeliverooTurnIn")
     {
         _plugin = plugin;
         _pluginInterface = pluginInterface;
         _configuration = configuration;
         _gcRewardsCache = gcRewardsCache;
+        _configWindow = configWindow;
 
         Position = new Vector2(100, 100);
         PositionCondition = ImGuiCond.FirstUseEver;
@@ -37,6 +41,7 @@ internal sealed class TurnInWindow : Window
 
     public bool State { get; set; }
     public decimal Multiplier { private get; set; }
+    public string Error { private get; set; }
 
     public uint SelectedItemId
     {
@@ -97,40 +102,50 @@ internal sealed class TurnInWindow : Window
             State = state;
         }
 
+        ImGui.SameLine();
+        if (ImGuiComponents.IconButton("###OpenConfig", FontAwesomeIcon.Cog))
+            _configWindow.IsOpen = true;
+
         ImGui.Indent(27);
-        if (Multiplier == 1m)
+        if (!string.IsNullOrEmpty(Error))
         {
-            ImGui.TextColored(ImGuiColors.DalamudRed, "You do not have an active seal buff.");
-        }
-        else
-        {
-            ImGui.TextColored(ImGuiColors.HealerGreen, $"Current Buff: {(Multiplier - 1m) * 100:N0}%%");
-        }
-
-        ImGui.Spacing();
-        ImGui.BeginDisabled(state);
-
-        List<string> comboValues = new() { GcRewardItem.None.Name };
-        foreach (var itemId in _configuration.ItemsAvailableForPurchase)
-        {
-            var name = _gcRewardsCache.Rewards[grandCompany].First(x => x.ItemId == itemId).Name;
-            int itemCount = GetItemCount(itemId);
-            if (itemCount > 0)
-                comboValues.Add($"{name} ({itemCount:N0})");
+            ImGui.TextColored(ImGuiColors.DalamudRed, Error);
+        } else {
+            if (Multiplier == 1m)
+            {
+                ImGui.TextColored(ImGuiColors.DalamudYellow, "You do not have an active seal buff.");
+            }
             else
-                comboValues.Add(name);
+            {
+                ImGui.TextColored(ImGuiColors.HealerGreen, $"Current Buff: {(Multiplier - 1m) * 100:N0}%%");
+            }
+
+            ImGui.Spacing();
+            ImGui.BeginDisabled(state);
+
+            List<string> comboValues = new() { GcRewardItem.None.Name };
+            foreach (var itemId in _configuration.ItemsAvailableForPurchase)
+            {
+                var name = _gcRewardsCache.Rewards[grandCompany].First(x => x.ItemId == itemId).Name;
+                int itemCount = GetItemCount(itemId);
+                if (itemCount > 0)
+                    comboValues.Add($"{name} ({itemCount:N0})");
+                else
+                    comboValues.Add(name);
+            }
+
+            if (ImGui.Combo("", ref _selectedAutoBuyItem, comboValues.ToArray(), comboValues.Count))
+            {
+                _configuration.SelectedPurchaseItemId = SelectedItemId;
+                _pluginInterface.SavePluginConfig(_configuration);
+            }
+
+            if (SelectedItem.IsValid() && SelectedItem.RequiredRank > _plugin.GetGrandCompanyRank())
+                ImGui.TextColored(ImGuiColors.DalamudRed, "Your rank isn't high enough to buy this item.");
+
+            ImGui.EndDisabled();
         }
 
-        if (ImGui.Combo("", ref _selectedAutoBuyItem, comboValues.ToArray(), comboValues.Count))
-        {
-            _configuration.SelectedPurchaseItemId = SelectedItemId;
-            _pluginInterface.SavePluginConfig(_configuration);
-        }
-
-        if (SelectedItem.IsValid() && SelectedItem.RequiredRank > _plugin.GetGrandCompanyRank())
-            ImGui.TextColored(ImGuiColors.DalamudRed, "Your rank isn't high enough to buy this item.");
-
-        ImGui.EndDisabled();
         ImGui.Unindent(27);
 
         ImGui.Separator();

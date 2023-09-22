@@ -13,6 +13,8 @@ namespace Deliveroo.Windows;
 
 internal sealed class ConfigWindow : Window
 {
+    private static string[] _itemFilterValues = { "Hide Gear Set Items", "Hide Armoury Chest Items" };
+
     private readonly DalamudPluginInterface _pluginInterface;
     private readonly DeliverooPlugin _plugin;
     private readonly Configuration _configuration;
@@ -170,6 +172,16 @@ internal sealed class ConfigWindow : Window
                 _configuration.ReservedSealCount = Math.Max(0, Math.Min(90_000, reservedSealCount));
                 Save();
             }
+
+            ImGui.Separator();
+            int selectedItemFilter = Math.Max(0, (int)_configuration.ItemFilter - 1);
+            if (ImGui.Combo("Item Filter", ref selectedItemFilter, _itemFilterValues, _itemFilterValues.Length))
+            {
+                _configuration.ItemFilter = (Configuration.ItemFilterType)(selectedItemFilter + 1);
+                Save();
+            }
+
+            ImGui.EndTabItem();
         }
     }
 

@@ -30,7 +30,7 @@ using ValueType = FFXIVClientStructs.FFXIV.Component.GUI.ValueType;
 
 namespace Deliveroo;
 
-public sealed class DeliverooPlugin : IDalamudPlugin
+public sealed partial class DeliverooPlugin : IDalamudPlugin
 {
     private readonly WindowSystem _windowSystem = new(typeof(DeliverooPlugin).AssemblyQualifiedName);
 
@@ -78,7 +78,7 @@ public sealed class DeliverooPlugin : IDalamudPlugin
         _gcRewardsCache = new GcRewardsCache(dataManager);
         _configWindow = new ConfigWindow(_pluginInterface, this, _configuration, _gcRewardsCache);
         _windowSystem.AddWindow(_configWindow);
-        _turnInWindow = new TurnInWindow(this, _pluginInterface, _configuration, _gcRewardsCache);
+        _turnInWindow = new TurnInWindow(this, _pluginInterface, _configuration, _gcRewardsCache, _configWindow);
         _windowSystem.AddWindow(_turnInWindow);
         _sealCaps = dataManager.GetExcelSheet<GrandCompanyRank>()!.Where(x => x.RowId > 0)
             .ToDictionary(x => x.RowId, x => x.MaxSeals);
@@ -105,6 +105,7 @@ public sealed class DeliverooPlugin : IDalamudPlugin
 
     private unsafe void FrameworkUpdate(Framework f)
     {
+        _turnInWindow.Error = string.Empty;
         if (!_clientState.IsLoggedIn || _clientState.TerritoryType is not 128 and not 130 and not 132 ||
             GetDistanceToNpc(GetQuartermasterId(), out GameObject? quartermaster) >= 7f ||
             GetDistanceToNpc(GetPersonnelOfficerId(), out GameObject? personnelOfficer) >= 7f ||
@@ -145,7 +146,7 @@ public sealed class DeliverooPlugin : IDalamudPlugin
 
                 if (TryGetAddonByName<AddonGrandCompanySupplyList>("GrandCompanySupplyList", out var gcSupplyList) &&
                     IsAddonReady(&gcSupplyList->AtkUnitBase))
-                    CurrentStage = Stage.SelectItemToTurnIn;
+                    CurrentStage = Stage.SelectExpertDeliveryTab;
 
                 if (TryGetAddonByName<AtkUnitBase>("GrandCompanyExchange", out var gcExchange) &&
                     IsAddonReady(gcExchange))
@@ -158,247 +159,60 @@ public sealed class DeliverooPlugin : IDalamudPlugin
             switch (CurrentStage)
             {
                 case Stage.TargetPersonnelOfficer:
-                    if (_targetManager.Target == quartermaster!)
-                        break;
-
-                    InteractWithTarget(personnelOfficer!);
-                    CurrentStage = Stage.OpenGcSupply;
+                    InteractWithPersonnelOfficer(personnelOfficer!, quartermaster!);
                     break;
+
                 case Stage.OpenGcSupply:
-                    if (SelectSelectString(0))
-                        CurrentStage = Stage.SelectItemToTurnIn;
-
+                    OpenGcSupply();
                     break;
+
+                case Stage.SelectExpertDeliveryTab:
+                    SelectExpertDeliveryTab();
+                    break;
+
                 case Stage.SelectItemToTurnIn:
-                    var agentInterface = AgentModule.Instance()->GetAgentByInternalId(AgentId.GrandCompanySupply);
-                    if (agentInterface != null && agentInterface->IsAgentActive())
-                    {
-                        var addonId = agentInterface->GetAddonID();
-                        if (addonId == 0)
-                            break;
-
-                        AtkUnitBase* addon = GetAddonById(addonId);
-                        if (addon == null || !IsAddonReady(addon) || addon->UldManager.NodeListCount <= 20 ||
-                            !addon->UldManager.NodeList[5]->IsVisible)
-                            break;
-
-                        var addonGc = (AddonGrandCompanySupplyList*)addon;
-                        if (addonGc->SelectedTab != 2 || addonGc->SelectedFilter != 1)
-                            break;
-
-                        var agent = (AgentGrandCompanySupply*)agentInterface;
-                        List<TurnInItem> items = BuildTurnInList(agent);
-                        if (items.Count == 0 || addon->UldManager.NodeList[20]->IsVisible)
-                        {
-                            CurrentStage = Stage.CloseGcSupplyThenStop;
-                            addon->FireCallbackInt(-1);
-                            break;
-                        }
-
-                        if (GetCurrentSealCount() + items[0].SealsWithBonus > GetSealCap())
-                        {
-                            CurrentStage = Stage.CloseGcSupply;
-                            addon->FireCallbackInt(-1);
-                            break;
-                        }
-
-                        var selectFirstItem = stackalloc AtkValue[]
-                        {
-                            new() { Type = ValueType.Int, Int = 1 },
-                            new() { Type = ValueType.Int, Int = 0 /* position within list */ },
-                            new() { Type = 0, Int = 0 }
-                        };
-                        addon->FireCallback(3, selectFirstItem);
-                        CurrentStage = Stage.TurnInSelected;
-                    }
-
+                    SelectItemToTurnIn();
                     break;
+
                 case Stage.TurnInSelected:
-                    if (TryGetAddonByName<AddonSelectYesno>("SelectYesno", out var addonSelectYesno) &&
-                        IsAddonReady(&addonSelectYesno->AtkUnitBase))
-                    {
-                        if (MemoryHelper.ReadSeString(&addonSelectYesno->PromptText->NodeText).ToString()
-                            .StartsWith("Do you really want to trade a high-quality item?"))
-                        {
-                            addonSelectYesno->AtkUnitBase.FireCallbackInt(0);
-                            break;
-                        }
-                    }
-
-                    if (TryGetAddonByName<AddonGrandCompanySupplyReward>("GrandCompanySupplyReward",
-                            out var addonSupplyReward) && IsAddonReady(&addonSupplyReward->AtkUnitBase))
-                    {
-                        addonSupplyReward->AtkUnitBase.FireCallbackInt(0);
-                        _continueAt = DateTime.Now.AddSeconds(0.58);
-                        CurrentStage = Stage.FinalizeTurnIn;
-                    }
-
+                    TurnInSelectedItem();
                     break;
 
                 case Stage.FinalizeTurnIn:
-                    if (TryGetAddonByName<AddonGrandCompanySupplyList>("GrandCompanySupplyList",
-                            out var addonSupplyList) && IsAddonReady(&addonSupplyList->AtkUnitBase))
-                    {
-                        var updateFilter = stackalloc AtkValue[]
-                        {
-                            new() { Type = ValueType.Int, Int = 5 },
-                            new() { Type = ValueType.Int, Int = addonSupplyList->SelectedFilter },
-                            new() { Type = 0, Int = 0 }
-                        };
-                        addonSupplyList->AtkUnitBase.FireCallback(3, updateFilter);
-                        CurrentStage = Stage.SelectItemToTurnIn;
-                    }
-
+                    FinalizeTurnInItem();
                     break;
 
                 case Stage.CloseGcSupply:
-                    if (SelectSelectString(3))
-                    {
-                        if (!_selectedRewardItem.IsValid())
-                        {
-                            _turnInWindow.State = false;
-                            CurrentStage = Stage.RequestStop;
-                        }
-                        else
-                        {
-                            // you can occasionally get a 'not enough seals' warning lol
-                            _continueAt = DateTime.Now.AddSeconds(1);
-                            CurrentStage = Stage.TargetQuartermaster;
-                        }
-                    }
-
+                    CloseGcSupply();
                     break;
 
                 case Stage.CloseGcSupplyThenStop:
-                    if (SelectSelectString(3))
-                    {
-                        if (!_selectedRewardItem.IsValid())
-                        {
-                            _turnInWindow.State = false;
-                            CurrentStage = Stage.RequestStop;
-                        }
-                        else if (GetCurrentSealCount() <=
-                                 _configuration.ReservedSealCount + _selectedRewardItem.SealCost)
-                        {
-                            _turnInWindow.State = false;
-                            CurrentStage = Stage.RequestStop;
-                        }
-                        else
-                        {
-                            _continueAt = DateTime.Now.AddSeconds(1);
-                            CurrentStage = Stage.TargetQuartermaster;
-                        }
-                    }
-
+                    CloseGcSupplyThenStop();
                     break;
 
                 case Stage.TargetQuartermaster:
-                    if (GetCurrentSealCount() < _configuration.ReservedSealCount)
-                    {
-                        CurrentStage = Stage.RequestStop;
-                        break;
-                    }
-
-                    if (_targetManager.Target == personnelOfficer!)
-                        break;
-
-                    InteractWithTarget(quartermaster!);
-                    CurrentStage = Stage.SelectRewardTier;
+                    InteractWithQuartermaster(personnelOfficer!, quartermaster!);
                     break;
 
                 case Stage.SelectRewardTier:
-                {
-                    if (TryGetAddonByName<AtkUnitBase>("GrandCompanyExchange", out var addonExchange) &&
-                        IsAddonReady(addonExchange))
-                    {
-                        PluginLog.Information($"Selecting tier 1, {(int)_selectedRewardItem.Tier - 1}");
-                        var selectRank = stackalloc AtkValue[]
-                        {
-                            new() { Type = ValueType.Int, Int = 1 },
-                            new() { Type = ValueType.Int, Int = (int)_selectedRewardItem.Tier - 1 },
-                            new() { Type = 0, Int = 0 },
-                            new() { Type = 0, Int = 0 },
-                            new() { Type = 0, Int = 0 },
-                            new() { Type = 0, Int = 0 },
-                            new() { Type = 0, Int = 0 },
-                            new() { Type = 0, Int = 0 },
-                            new() { Type = 0, Int = 0 }
-                        };
-                        addonExchange->FireCallback(9, selectRank);
-                        _continueAt = DateTime.Now.AddSeconds(0.5);
-                        CurrentStage = Stage.SelectRewardSubCategory;
-                    }
-
+                    SelectRewardTier();
                     break;
-                }
 
                 case Stage.SelectRewardSubCategory:
-                {
-                    if (TryGetAddonByName<AtkUnitBase>("GrandCompanyExchange", out var addonExchange) &&
-                        IsAddonReady(addonExchange))
-                    {
-                        PluginLog.Information($"Selecting subcategory 2, {(int)_selectedRewardItem.SubCategory}");
-                        var selectType = stackalloc AtkValue[]
-                        {
-                            new() { Type = ValueType.Int, Int = 2 },
-                            new() { Type = ValueType.Int, Int = (int)_selectedRewardItem.SubCategory },
-                            new() { Type = 0, Int = 0 },
-                            new() { Type = 0, Int = 0 },
-                            new() { Type = 0, Int = 0 },
-                            new() { Type = 0, Int = 0 },
-                            new() { Type = 0, Int = 0 },
-                            new() { Type = 0, Int = 0 },
-                            new() { Type = 0, Int = 0 }
-                        };
-                        addonExchange->FireCallback(9, selectType);
-                        _continueAt = DateTime.Now.AddSeconds(0.5);
-                        CurrentStage = Stage.SelectReward;
-                    }
-
+                    SelectRewardSubCategory();
                     break;
-                }
 
                 case Stage.SelectReward:
-                {
-                    if (TryGetAddonByName<AtkUnitBase>("GrandCompanyExchange", out var addonExchange) &&
-                        IsAddonReady(addonExchange))
-                    {
-                        if (SelectRewardItem(addonExchange))
-                        {
-                            _continueAt = DateTime.Now.AddSeconds(0.5);
-                            CurrentStage = Stage.ConfirmReward;
-                        }
-                        else
-                        {
-                            PluginLog.Warning("Could not find selected reward item");
-                            _continueAt = DateTime.Now.AddSeconds(0.5);
-                            CurrentStage = Stage.CloseGcExchange;
-                        }
-                    }
-
+                    SelectReward();
                     break;
-                }
 
                 case Stage.ConfirmReward:
-                    if (SelectSelectYesno(0))
-                    {
-                        CurrentStage = Stage.CloseGcExchange;
-                        _continueAt = DateTime.Now.AddSeconds(0.5);
-                    }
-
+                    ConfirmReward();
                     break;
 
                 case Stage.CloseGcExchange:
-                {
-                    if (TryGetAddonByName<AtkUnitBase>("GrandCompanyExchange", out var addonExchange) &&
-                        IsAddonReady(addonExchange))
-                    {
-                        addonExchange->FireCallbackInt(-1);
-                        CurrentStage = Stage.TargetPersonnelOfficer;
-                    }
-
+                    CloseGcExchange();
                     break;
-                }
 
                 case Stage.RequestStop:
                     RestoreYesAlready();
@@ -699,6 +513,7 @@ public sealed class DeliverooPlugin : IDalamudPlugin
     {
         TargetPersonnelOfficer,
         OpenGcSupply,
+        SelectExpertDeliveryTab,
         SelectItemToTurnIn,
         TurnInSelected,
         FinalizeTurnIn,
