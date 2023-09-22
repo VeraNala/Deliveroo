@@ -77,25 +77,37 @@ internal sealed class TurnInWindow : Window
 
     public override void Draw()
     {
-        bool state = State;
-        if (ImGui.Checkbox("Handle GC turn ins/exchange automatically", ref state))
-        {
-            State = state;
-        }
-
-        ImGui.Indent(27);
-        if (Multiplier == 1m)
-        {
-            ImGui.TextColored(ImGuiColors.DalamudRed, "You do not have a buff active");
-        }
-        else
-        {
-            ImGui.TextColored(ImGuiColors.HealerGreen, $"Current Buff: {(Multiplier - 1m) * 100:N0}%%");
-        }
-
         GrandCompany grandCompany = _plugin.GetGrandCompany();
-        if (grandCompany != GrandCompany.None) // not sure we should ever get here
+        if (grandCompany == GrandCompany.None)
         {
+            // not sure we should ever get here
+            State = false;
+            return;
+        }
+
+        if (_plugin.GetGrandCompanyRank() < 6)
+        {
+            State = false;
+            ImGui.TextColored(ImGuiColors.DalamudRed, "You do not have the required rank for Expert Delivery.");
+            return;
+        }
+
+        bool state = State;
+            if (ImGui.Checkbox("Handle GC turn ins/exchange automatically", ref state))
+            {
+                State = state;
+            }
+
+            ImGui.Indent(27);
+            if (Multiplier == 1m)
+            {
+                ImGui.TextColored(ImGuiColors.DalamudRed, "You do not have an active seal buff.");
+            }
+            else
+            {
+                ImGui.TextColored(ImGuiColors.HealerGreen, $"Current Buff: {(Multiplier - 1m) * 100:N0}%%");
+            }
+
             ImGui.Spacing();
             ImGui.BeginDisabled(state);
 
@@ -120,12 +132,10 @@ internal sealed class TurnInWindow : Window
                 ImGui.TextColored(ImGuiColors.DalamudRed, "Your rank isn't high enough to buy this item.");
 
             ImGui.EndDisabled();
-        }
+            ImGui.Unindent(27);
 
-        ImGui.Unindent(27);
-
-        ImGui.Separator();
-        ImGui.Text($"Debug (State): {_plugin.CurrentStage}");
+            ImGui.Separator();
+            ImGui.Text($"Debug (State): {_plugin.CurrentStage}");
     }
 
     private unsafe int GetItemCount(uint itemId)
