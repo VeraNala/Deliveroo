@@ -58,6 +58,7 @@ partial class DeliverooPlugin
                 new() { Type = 0, Int = 0 }
             };
             addon->FireCallback(3, selectExpertDeliveryTab);
+            CurrentStage = Stage.SelectItemToTurnIn;
         }
     }
 
