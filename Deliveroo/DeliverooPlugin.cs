@@ -14,6 +14,7 @@ using Dalamud.Interface.Windowing;
 using Dalamud.Logging;
 using Dalamud.Memory;
 using Dalamud.Plugin;
+using Deliveroo.External;
 using Deliveroo.GameData;
 using Deliveroo.Windows;
 using FFXIVClientStructs.FFXIV.Client.Game;
@@ -45,14 +46,19 @@ public sealed class DeliverooPlugin : IDalamudPlugin
     private readonly Configuration _configuration;
 
     // ReSharper disable once PrivateFieldCanBeConvertedToLocalVariable
+    private readonly YesAlreadyIpc _yesAlreadyIpc;
+
+    // ReSharper disable once PrivateFieldCanBeConvertedToLocalVariable
     private readonly GcRewardsCache _gcRewardsCache;
+
     private readonly ConfigWindow _configWindow;
     private readonly TurnInWindow _turnInWindow;
     private readonly IReadOnlyDictionary<uint, uint> _sealCaps;
 
-    private Stage _currentStageInternal = Stage.Stop;
+    private Stage _currentStageInternal = Stage.Stopped;
     private DateTime _continueAt = DateTime.MinValue;
     private GcRewardItem _selectedRewardItem = GcRewardItem.None;
+    private (bool Saved, bool? PreviousState) _yesAlreadyState = (false, null);
 
     public DeliverooPlugin(DalamudPluginInterface pluginInterface, ChatGui chatGui, GameGui gameGui,
         Framework framework, ClientState clientState, ObjectTable objectTable, TargetManager targetManager,
@@ -66,6 +72,8 @@ public sealed class DeliverooPlugin : IDalamudPlugin
         _objectTable = objectTable;
         _targetManager = targetManager;
 
+        var dalamudReflector = new DalamudReflector(_pluginInterface, _framework);
+        _yesAlreadyIpc = new YesAlreadyIpc(dalamudReflector);
         _configuration = (Configuration?)_pluginInterface.GetPluginConfig() ?? new Configuration();
         _gcRewardsCache = new GcRewardsCache(dataManager);
         _configWindow = new ConfigWindow(_pluginInterface, this, _configuration, _gcRewardsCache);
@@ -104,7 +112,11 @@ public sealed class DeliverooPlugin : IDalamudPlugin
         {
             _turnInWindow.IsOpen = false;
             _turnInWindow.State = false;
-            CurrentStage = Stage.Stop;
+            if (CurrentStage != Stage.Stopped)
+            {
+                RestoreYesAlready();
+                CurrentStage = Stage.Stopped;
+            }
         }
         else if (DateTime.Now > _continueAt)
         {
@@ -113,11 +125,15 @@ public sealed class DeliverooPlugin : IDalamudPlugin
 
             if (!_turnInWindow.State)
             {
-                CurrentStage = Stage.Stop;
+                if (CurrentStage != Stage.Stopped)
+                {
+                    RestoreYesAlready();
+                    CurrentStage = Stage.Stopped;
+                }
+
                 return;
             }
-
-            if (_turnInWindow.State && CurrentStage == Stage.Stop)
+            else if (_turnInWindow.State && CurrentStage == Stage.Stopped)
             {
                 CurrentStage = Stage.TargetPersonnelOfficer;
                 _selectedRewardItem = _turnInWindow.SelectedItem;
@@ -135,6 +151,9 @@ public sealed class DeliverooPlugin : IDalamudPlugin
                     IsAddonReady(gcExchange))
                     CurrentStage = Stage.CloseGcExchange;
             }
+
+            if (CurrentStage != Stage.Stopped && CurrentStage != Stage.RequestStop && !_yesAlreadyState.Saved)
+                SaveYesAlready();
 
             switch (CurrentStage)
             {
@@ -238,7 +257,7 @@ public sealed class DeliverooPlugin : IDalamudPlugin
                         if (!_selectedRewardItem.IsValid())
                         {
                             _turnInWindow.State = false;
-                            CurrentStage = Stage.Stop;
+                            CurrentStage = Stage.RequestStop;
                         }
                         else
                         {
@@ -256,13 +275,13 @@ public sealed class DeliverooPlugin : IDalamudPlugin
                         if (!_selectedRewardItem.IsValid())
                         {
                             _turnInWindow.State = false;
-                            CurrentStage = Stage.Stop;
+                            CurrentStage = Stage.RequestStop;
                         }
                         else if (GetCurrentSealCount() <=
                                  _configuration.ReservedSealCount + _selectedRewardItem.SealCost)
                         {
                             _turnInWindow.State = false;
-                            CurrentStage = Stage.Stop;
+                            CurrentStage = Stage.RequestStop;
                         }
                         else
                         {
@@ -276,7 +295,7 @@ public sealed class DeliverooPlugin : IDalamudPlugin
                 case Stage.TargetQuartermaster:
                     if (GetCurrentSealCount() < _configuration.ReservedSealCount)
                     {
-                        CurrentStage = Stage.Stop;
+                        CurrentStage = Stage.RequestStop;
                         break;
                     }
 
@@ -381,7 +400,12 @@ public sealed class DeliverooPlugin : IDalamudPlugin
                     break;
                 }
 
-                case Stage.Stop:
+                case Stage.RequestStop:
+                    RestoreYesAlready();
+                    CurrentStage = Stage.Stopped;
+
+                    break;
+                case Stage.Stopped:
                     break;
                 default:
                     PluginLog.Warning($"Unknown stage {CurrentStage}");
@@ -418,6 +442,8 @@ public sealed class DeliverooPlugin : IDalamudPlugin
         _pluginInterface.UiBuilder.OpenConfigUi -= _configWindow.Toggle;
         _pluginInterface.UiBuilder.Draw -= _windowSystem.Draw;
         _framework.Update -= FrameworkUpdate;
+
+        RestoreYesAlready();
     }
 
     private unsafe List<TurnInItem> BuildTurnInList(AgentGrandCompanySupply* agent)
@@ -514,7 +540,7 @@ public sealed class DeliverooPlugin : IDalamudPlugin
                 if (toBuy == 0)
                 {
                     _turnInWindow.State = false;
-                    CurrentStage = Stage.Stop;
+                    CurrentStage = Stage.RequestStop;
                     break;
                 }
 
@@ -645,6 +671,30 @@ public sealed class DeliverooPlugin : IDalamudPlugin
             (FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject*)obj.Address, false);
     }
 
+    private void SaveYesAlready()
+    {
+        if (_yesAlreadyState.Saved)
+        {
+            PluginLog.Information("Not overwriting yesalready state");
+            return;
+        }
+
+        _yesAlreadyState = (true, _yesAlreadyIpc.DisableIfNecessary());
+        PluginLog.Information($"Previous yesalready state: {_yesAlreadyState.PreviousState}");
+    }
+
+    private void RestoreYesAlready()
+    {
+        if (_yesAlreadyState.Saved)
+        {
+            PluginLog.Information($"Restoring previous yesalready state: {_yesAlreadyState.PreviousState}");
+            if (_yesAlreadyState.PreviousState == true)
+                _yesAlreadyIpc.Enable();
+        }
+
+        _yesAlreadyState = (false, null);
+    }
+
     internal enum Stage
     {
         TargetPersonnelOfficer,
@@ -662,6 +712,7 @@ public sealed class DeliverooPlugin : IDalamudPlugin
         ConfirmReward,
         CloseGcExchange,
 
-        Stop,
+        RequestStop,
+        Stopped,
     }
 }
