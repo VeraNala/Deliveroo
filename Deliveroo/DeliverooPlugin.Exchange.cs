@@ -92,7 +92,7 @@ partial class DeliverooPlugin
 
     private void ConfirmReward()
     {
-        if (SelectSelectYesno(0))
+        if (SelectSelectYesno(0, s => s.StartsWith("Exchange ")))
         {
             CurrentStage = Stage.CloseGcExchange;
             _continueAt = DateTime.Now.AddSeconds(0.5);

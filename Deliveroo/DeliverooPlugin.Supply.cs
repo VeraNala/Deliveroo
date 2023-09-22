@@ -118,16 +118,8 @@ partial class DeliverooPlugin
 
     private unsafe void TurnInSelectedItem()
     {
-        if (TryGetAddonByName<AddonSelectYesno>("SelectYesno", out var addonSelectYesno) &&
-            IsAddonReady(&addonSelectYesno->AtkUnitBase))
-        {
-            if (MemoryHelper.ReadSeString(&addonSelectYesno->PromptText->NodeText).ToString()
-                .StartsWith("Do you really want to trade a high-quality item?"))
-            {
-                addonSelectYesno->AtkUnitBase.FireCallbackInt(0);
-                return;
-            }
-        }
+        if (SelectSelectYesno(0, s => s == "Do you really want to trade a high-quality item?"))
+            return;
 
         if (TryGetAddonByName<AddonGrandCompanySupplyReward>("GrandCompanySupplyReward",
                 out var addonSupplyReward) && IsAddonReady(&addonSupplyReward->AtkUnitBase))

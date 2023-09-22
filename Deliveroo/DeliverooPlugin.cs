@@ -442,10 +442,11 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         return false;
     }
 
-    private unsafe bool SelectSelectYesno(int choice)
+    private unsafe bool SelectSelectYesno(int choice, Predicate<string> predicate)
     {
         if (TryGetAddonByName<AddonSelectYesno>("SelectYesno", out var addonSelectYesno) &&
-            IsAddonReady(&addonSelectYesno->AtkUnitBase))
+            IsAddonReady(&addonSelectYesno->AtkUnitBase) &&
+            predicate(MemoryHelper.ReadSeString(&addonSelectYesno->PromptText->NodeText).ToString()))
         {
             PluginLog.Information(
                 $"Selecting choice={choice} for '{MemoryHelper.ReadSeString(&addonSelectYesno->PromptText->NodeText)}'");
