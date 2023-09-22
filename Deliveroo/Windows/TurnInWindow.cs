@@ -3,7 +3,6 @@ using System.Linq;
 using System.Numerics;
 using Dalamud.Interface.Colors;
 using Dalamud.Interface.Windowing;
-using Dalamud.Logging;
 using Dalamud.Plugin;
 using Deliveroo.GameData;
 using FFXIVClientStructs.FFXIV.Client.Game;
@@ -93,49 +92,49 @@ internal sealed class TurnInWindow : Window
         }
 
         bool state = State;
-            if (ImGui.Checkbox("Handle GC turn ins/exchange automatically", ref state))
-            {
-                State = state;
-            }
+        if (ImGui.Checkbox("Handle GC turn ins/exchange automatically", ref state))
+        {
+            State = state;
+        }
 
-            ImGui.Indent(27);
-            if (Multiplier == 1m)
-            {
-                ImGui.TextColored(ImGuiColors.DalamudRed, "You do not have an active seal buff.");
-            }
+        ImGui.Indent(27);
+        if (Multiplier == 1m)
+        {
+            ImGui.TextColored(ImGuiColors.DalamudRed, "You do not have an active seal buff.");
+        }
+        else
+        {
+            ImGui.TextColored(ImGuiColors.HealerGreen, $"Current Buff: {(Multiplier - 1m) * 100:N0}%%");
+        }
+
+        ImGui.Spacing();
+        ImGui.BeginDisabled(state);
+
+        List<string> comboValues = new() { GcRewardItem.None.Name };
+        foreach (var itemId in _configuration.ItemsAvailableForPurchase)
+        {
+            var name = _gcRewardsCache.Rewards[grandCompany].First(x => x.ItemId == itemId).Name;
+            int itemCount = GetItemCount(itemId);
+            if (itemCount > 0)
+                comboValues.Add($"{name} ({itemCount:N0})");
             else
-            {
-                ImGui.TextColored(ImGuiColors.HealerGreen, $"Current Buff: {(Multiplier - 1m) * 100:N0}%%");
-            }
+                comboValues.Add(name);
+        }
 
-            ImGui.Spacing();
-            ImGui.BeginDisabled(state);
+        if (ImGui.Combo("", ref _selectedAutoBuyItem, comboValues.ToArray(), comboValues.Count))
+        {
+            _configuration.SelectedPurchaseItemId = SelectedItemId;
+            _pluginInterface.SavePluginConfig(_configuration);
+        }
 
-            List<string> comboValues = new() { GcRewardItem.None.Name };
-            foreach (var itemId in _configuration.ItemsAvailableForPurchase)
-            {
-                var name = _gcRewardsCache.Rewards[grandCompany].First(x => x.ItemId == itemId).Name;
-                int itemCount = GetItemCount(itemId);
-                if (itemCount > 0)
-                    comboValues.Add($"{name} ({itemCount:N0})");
-                else
-                    comboValues.Add(name);
-            }
+        if (SelectedItem.IsValid() && SelectedItem.RequiredRank > _plugin.GetGrandCompanyRank())
+            ImGui.TextColored(ImGuiColors.DalamudRed, "Your rank isn't high enough to buy this item.");
 
-            if (ImGui.Combo("", ref _selectedAutoBuyItem, comboValues.ToArray(), comboValues.Count))
-            {
-                _configuration.SelectedPurchaseItemId = SelectedItemId;
-                _pluginInterface.SavePluginConfig(_configuration);
-            }
+        ImGui.EndDisabled();
+        ImGui.Unindent(27);
 
-            if (SelectedItem.IsValid() && SelectedItem.RequiredRank > _plugin.GetGrandCompanyRank())
-                ImGui.TextColored(ImGuiColors.DalamudRed, "Your rank isn't high enough to buy this item.");
-
-            ImGui.EndDisabled();
-            ImGui.Unindent(27);
-
-            ImGui.Separator();
-            ImGui.Text($"Debug (State): {_plugin.CurrentStage}");
+        ImGui.Separator();
+        ImGui.Text($"Debug (State): {_plugin.CurrentStage}");
     }
 
     private unsafe int GetItemCount(uint itemId)

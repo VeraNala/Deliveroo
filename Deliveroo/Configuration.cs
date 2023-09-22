@@ -9,4 +9,6 @@ internal sealed class Configuration : IPluginConfiguration
 
     public List<uint> ItemsAvailableForPurchase { get; set; } = new();
     public uint SelectedPurchaseItemId { get; set; } = 0;
+
+    public int ReservedSealCount { get; set; } = 0;
 }

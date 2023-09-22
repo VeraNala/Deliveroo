@@ -22,7 +22,9 @@ using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
+using Lumina.Excel.GeneratedSheets;
 using Character = Dalamud.Game.ClientState.Objects.Types.Character;
+using GrandCompany = FFXIVClientStructs.FFXIV.Client.UI.Agent.GrandCompany;
 using ValueType = FFXIVClientStructs.FFXIV.Component.GUI.ValueType;
 
 namespace Deliveroo;
@@ -41,10 +43,12 @@ public sealed class DeliverooPlugin : IDalamudPlugin
 
     // ReSharper disable once PrivateFieldCanBeConvertedToLocalVariable
     private readonly Configuration _configuration;
+
     // ReSharper disable once PrivateFieldCanBeConvertedToLocalVariable
     private readonly GcRewardsCache _gcRewardsCache;
     private readonly ConfigWindow _configWindow;
     private readonly TurnInWindow _turnInWindow;
+    private readonly IReadOnlyDictionary<uint, uint> _sealCaps;
 
     private Stage _currentStageInternal = Stage.Stop;
     private DateTime _continueAt = DateTime.MinValue;
@@ -68,6 +72,8 @@ public sealed class DeliverooPlugin : IDalamudPlugin
         _windowSystem.AddWindow(_configWindow);
         _turnInWindow = new TurnInWindow(this, _pluginInterface, _configuration, _gcRewardsCache);
         _windowSystem.AddWindow(_turnInWindow);
+        _sealCaps = dataManager.GetExcelSheet<GrandCompanyRank>()!.Where(x => x.RowId > 0)
+            .ToDictionary(x => x.RowId, x => x.MaxSeals);
 
         _framework.Update += FrameworkUpdate;
         _pluginInterface.UiBuilder.Draw += _windowSystem.Draw;
@@ -252,7 +258,8 @@ public sealed class DeliverooPlugin : IDalamudPlugin
                             _turnInWindow.State = false;
                             CurrentStage = Stage.Stop;
                         }
-                        else if (GetCurrentSealCount() <= 2000 + _selectedRewardItem.SealCost)
+                        else if (GetCurrentSealCount() <=
+                                 _configuration.ReservedSealCount + _selectedRewardItem.SealCost)
                         {
                             _turnInWindow.State = false;
                             CurrentStage = Stage.Stop;
@@ -267,7 +274,7 @@ public sealed class DeliverooPlugin : IDalamudPlugin
                     break;
 
                 case Stage.TargetQuartermaster:
-                    if (GetCurrentSealCount() < 2000) // fixme this should be selectable/dependent on shop item
+                    if (GetCurrentSealCount() < _configuration.ReservedSealCount)
                     {
                         CurrentStage = Stage.Stop;
                         break;
@@ -499,7 +506,7 @@ public sealed class DeliverooPlugin : IDalamudPlugin
             uint itemId = addonExchange->AtkValues[317 + i].UInt;
             if (itemId == _selectedRewardItem.ItemId)
             {
-                long toBuy = (GetCurrentSealCount() - 2000) / _selectedRewardItem.SealCost;
+                long toBuy = (GetCurrentSealCount() - _configuration.ReservedSealCount) / _selectedRewardItem.SealCost;
                 bool isVenture = _selectedRewardItem.ItemId == ItemIds.Venture;
                 if (isVenture)
                     toBuy = Math.Min(toBuy, 65000 - GetCurrentVentureCount());
@@ -575,24 +582,7 @@ public sealed class DeliverooPlugin : IDalamudPlugin
         };
     }
 
-    private int GetSealCap()
-    {
-        return GetGrandCompanyRank() switch
-        {
-            1 => 10_000,
-            2 => 15_000,
-            3 => 20_000,
-            4 => 25_000,
-            5 => 30_000,
-            6 => 35_000,
-            7 => 40_000,
-            8 => 45_000,
-            9 => 50_000,
-            10 => 80_000,
-            11 => 90_000,
-            _ => 0,
-        };
-    }
+    private uint GetSealCap() => _sealCaps.TryGetValue(GetGrandCompanyRank(), out var cap) ? cap : 0;
 
     private unsafe int GetCurrentVentureCount()
     {
