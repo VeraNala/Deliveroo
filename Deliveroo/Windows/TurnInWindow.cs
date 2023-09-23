@@ -20,7 +20,7 @@ internal sealed class TurnInWindow : Window
     private readonly Configuration _configuration;
     private readonly GcRewardsCache _gcRewardsCache;
     private readonly ConfigWindow _configWindow;
-    private int _selectedAutoBuyItem = 0;
+    private int _selectedAutoBuyItem;
 
     public TurnInWindow(DeliverooPlugin plugin, DalamudPluginInterface pluginInterface, Configuration configuration,
         GcRewardsCache gcRewardsCache, ConfigWindow configWindow)
@@ -41,9 +41,9 @@ internal sealed class TurnInWindow : Window
 
     public bool State { get; set; }
     public decimal Multiplier { private get; set; }
-    public string Error { private get; set; }
+    public string Error { private get; set; } = string.Empty;
 
-    public uint SelectedItemId
+    private uint SelectedItemId
     {
         get
         {
