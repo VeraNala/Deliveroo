@@ -47,7 +47,6 @@ internal sealed class TurnInWindow : Window
 
     public bool State { get; set; }
     public decimal Multiplier { private get; set; }
-    public int EstimatedGcSeals { private get; set; }
     public string Error { private get; set; } = string.Empty;
 
     public List<PurchaseItemRequest> SelectedItems
@@ -135,15 +134,6 @@ internal sealed class TurnInWindow : Window
 
         ImGui.Separator();
         ImGui.Text($"Debug (State): {_plugin.CurrentStage}");
-        switch (_plugin.CurrentStage)
-        {
-            case Stage.SelectItemToTurnIn:
-            case Stage.TurnInSelected:
-            case Stage.FinalizeTurnIn:
-            case Stage.CloseGcSupply:
-                ImGui.Text($"Estimated Total Seal Count: {EstimatedGcSeals:N0}");
-                break;
-        }
     }
 
     private void DrawItemsToBuy(GrandCompany grandCompany)

@@ -120,6 +120,9 @@ partial class DeliverooPlugin
         return 1;
     }
 
+    /// <summary>
+    /// This returns ALL items that can be turned in, regardless of filter settings.
+    /// </summary>
     private unsafe List<TurnInItem> BuildTurnInList(AgentGrandCompanySupply* agent)
     {
         List<TurnInItem> list = new();

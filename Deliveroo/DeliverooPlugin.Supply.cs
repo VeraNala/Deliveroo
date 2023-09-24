@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Logging;
+using Dalamud.Memory;
 using Deliveroo.GameData;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
@@ -72,11 +73,13 @@ partial class DeliverooPlugin
                 return;
 
             AtkUnitBase* addon = GetAddonById(addonId);
-            if (addon == null || !IsAddonReady(addon) || addon->UldManager.NodeListCount <= 20 ||
-                !addon->UldManager.NodeList[5]->IsVisible)
+            if (addon == null || !IsAddonReady(addon) || addon->UldManager.NodeListCount <= 20)
                 return;
 
             var addonGc = (AddonGrandCompanySupplyList*)addon;
+            if (addonGc->ExpertDeliveryList == null || !addonGc->ExpertDeliveryList->AtkComponentBase.OwnerNode->AtkResNode.IsVisible)
+                return;
+
             if (addonGc->SelectedTab != 2)
             {
                 _turnInWindow.Error = "Wrong tab selected";
@@ -90,16 +93,42 @@ partial class DeliverooPlugin
                 return;
             }
 
-            var agent = (AgentGrandCompanySupply*)agentInterface;
-            List<TurnInItem> items = BuildTurnInList(agent);
-            _turnInWindow.EstimatedGcSeals = GetCurrentSealCount() + items.Sum(x => x.SealsWithBonus);
-            if (items.Count == 0 || addon->UldManager.NodeList[20]->IsVisible)
+            if (addonGc->ListEmptyTextNode->AtkResNode.IsVisible)
             {
                 CurrentStage = Stage.CloseGcSupplyThenStop;
                 addon->FireCallbackInt(-1);
                 return;
             }
 
+            var agent = (AgentGrandCompanySupply*)agentInterface;
+            List<TurnInItem> items = BuildTurnInList(agent);
+            if (items.Count == 0)
+            {
+                // probably shouldn't happen with the previous node visibility check
+                CurrentStage = Stage.CloseGcSupplyThenStop;
+                addon->FireCallbackInt(-1);
+                return;
+            }
+
+            // TODO The way the items are handled above, we don't actually know if items[0] is the first visible item
+            // in the list, it is "only" the highest-value item to turn in.
+            //
+            // For example, if you have
+            //   - Trojan Ring, SealsWithoutBonus = 1887, part of a gear set
+            //   - Radiant Battleaxe, SealsWithoutBonus = 1879, not part of a gear set
+            // then this algorithm will ensure that you have enough space for the highest-value item (trojan ring), even
+            // though it turn in the Radiant Battleaxe.
+            //
+            // Alternatively, and probably easier:
+            //   - look up how many seals the first item gets
+            //   - find *any* item in the list with that seal count (and possibly matching the name) to determine the
+            //     seals with bonus + whether it exists
+            //   - use that item instead of items[0] here
+            //
+            // However, since this never over-caps seals, this isn't a very high priority.
+            // ---------------------------------------------------------------------------------------------------------
+            // TODO If we ever manage to obtain a mapping name to itemId here, we can try and exclude e.g. Red Onion
+            // Helms from being turned in.
             if (GetCurrentSealCount() + items[0].SealsWithBonus > GetSealCap())
             {
                 CurrentStage = Stage.CloseGcSupply;
