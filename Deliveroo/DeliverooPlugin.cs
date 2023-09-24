@@ -57,7 +57,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
 
     private Stage _currentStageInternal = Stage.Stopped;
     private DateTime _continueAt = DateTime.MinValue;
-    private GcRewardItem _selectedRewardItem = GcRewardItem.None;
+    private List<PurchaseItemRequest> _itemsToPurchaseNow = new();
     private (bool Saved, bool? PreviousState) _yesAlreadyState = (false, null);
 
     public DeliverooPlugin(DalamudPluginInterface pluginInterface, ChatGui chatGui, GameGui gameGui,
@@ -137,11 +137,19 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
             else if (_turnInWindow.State && CurrentStage == Stage.Stopped)
             {
                 CurrentStage = Stage.TargetPersonnelOfficer;
-                _selectedRewardItem = _turnInWindow.SelectedItem;
-                if (_selectedRewardItem.IsValid() && _selectedRewardItem.RequiredRank > GetGrandCompanyRank())
-                    _selectedRewardItem = GcRewardItem.None;
+                _itemsToPurchaseNow = _turnInWindow.SelectedItems;
+                if (_itemsToPurchaseNow.Count > 0)
+                {
+                    PluginLog.Information("Items to purchase:");
+                    foreach (var item in _itemsToPurchaseNow)
+                        PluginLog.Information($"  {item.Name} (limit = {item.EffectiveLimit})");
+                }
+                else
+                    PluginLog.Information("No items to purchase configured or available");
 
-                if (_selectedRewardItem.IsValid() && GetCurrentSealCount() > GetSealCap() / 2)
+
+                var nextItem = GetNextItemToPurchase();
+                if (nextItem != null && GetCurrentSealCount() >= _configuration.ReservedSealCount + nextItem.SealCost)
                     CurrentStage = Stage.TargetQuartermaster;
 
                 if (TryGetAddonByName<AddonGrandCompanySupplyList>("GrandCompanySupplyList", out var gcSupplyList) &&
@@ -150,7 +158,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
 
                 if (TryGetAddonByName<AtkUnitBase>("GrandCompanyExchange", out var gcExchange) &&
                     IsAddonReady(gcExchange))
-                    CurrentStage = Stage.CloseGcExchange;
+                    CurrentStage = Stage.SelectRewardTier;
             }
 
             if (CurrentStage != Stage.Stopped && CurrentStage != Stage.RequestStop && !_yesAlreadyState.Saved)
@@ -228,28 +236,6 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         }
     }
 
-    private float GetDistanceToNpc(int npcId, out GameObject? o)
-    {
-        foreach (var obj in _objectTable)
-        {
-            if (obj.ObjectKind == ObjectKind.EventNpc && obj is Character c)
-            {
-                if (GetNpcId(obj) == npcId)
-                {
-                    o = obj;
-                    return Vector3.Distance(_clientState.LocalPlayer!.Position, c.Position);
-                }
-            }
-        }
-
-        o = null;
-        return float.MaxValue;
-    }
-
-    private int GetNpcId(GameObject obj)
-    {
-        return Marshal.ReadInt32(obj.Address + 128);
-    }
 
     public void Dispose()
     {
@@ -258,232 +244,6 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         _framework.Update -= FrameworkUpdate;
 
         RestoreYesAlready();
-    }
-
-    private unsafe List<TurnInItem> BuildTurnInList(AgentGrandCompanySupply* agent)
-    {
-        List<TurnInItem> list = new();
-        for (int i = 11 /* skip over provisioning items */; i < agent->NumItems; ++i)
-        {
-            GrandCompanyItem item = agent->ItemArray[i];
-
-            // this includes all items, even if they don't match the filter
-            list.Add(new TurnInItem
-            {
-                ItemId = Marshal.ReadInt32(new nint(&item) + 132),
-                Name = MemoryHelper.ReadSeString(&item.ItemName).ToString(),
-                SealsWithBonus = (int)Math.Round(item.SealReward * GetSealMultiplier(), MidpointRounding.AwayFromZero),
-                SealsWithoutBonus = item.SealReward,
-                ItemUiCategory = Marshal.ReadByte(new nint(&item) + 150),
-            });
-
-            // GrandCompanyItem + 104 = [int] InventoryType
-            // GrandCompanyItem + 108 = [int] ??
-            // GrandCompanyItem + 124 = [int] <Item's Column 19 in the sheet, but that has no name>
-            // GrandCompanyItem + 132 = [int] itemId
-            // GrandCompanyItem + 136 = [int] 0 (always)?
-            // GrandCompanyItem + 140 = [int] i (item's own position within the unsorted list)
-            // GrandCompanyItem + 148 = [short] ilvl
-            // GrandCompanyItem + 150 = [byte] ItemUICategory
-            // GrandCompanyItem + 151 = [byte] (unchecked) inventory slot in container
-            // GrandCompanyItem + 152 = [short] 512 (always)?
-            // int itemId = Marshal.ReadInt32(new nint(&item) + 132);
-            // PluginLog.Verbose($" {Marshal.ReadInt32(new nint(&item) + 132)};;;; {MemoryHelper.ReadSeString(&item.ItemName)}, {new nint(&agent->ItemArray[i]):X8}, {item.SealReward}, {item.IsTurnInAvailable}");
-        }
-
-        return list.OrderByDescending(x => x.SealsWithBonus)
-            .ThenBy(x => x.ItemUiCategory)
-            .ThenBy(x => x.ItemId)
-            .ToList();
-    }
-
-    private unsafe AtkUnitBase* GetAddonById(uint id)
-    {
-        var unitManagers = &AtkStage.GetSingleton()->RaptureAtkUnitManager->AtkUnitManager.DepthLayerOneList;
-        for (var i = 0; i < 18; i++)
-        {
-            var unitManager = &unitManagers[i];
-            var unitBaseArray = &(unitManager->AtkUnitEntries);
-            for (var j = 0; j < unitManager->Count; j++)
-            {
-                var unitBase = unitBaseArray[j];
-                if (unitBase->ID == id)
-                {
-                    return unitBase;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    private unsafe bool TryGetAddonByName<T>(string addonName, out T* addonPtr)
-        where T : unmanaged
-    {
-        var a = _gameGui.GetAddonByName(addonName);
-        if (a != IntPtr.Zero)
-        {
-            addonPtr = (T*)a;
-            return true;
-        }
-        else
-        {
-            addonPtr = null;
-            return false;
-        }
-    }
-
-    private unsafe bool IsAddonReady(AtkUnitBase* addon)
-    {
-        return addon->IsVisible && addon->UldManager.LoadedState == AtkLoadState.Loaded;
-    }
-
-    private unsafe bool SelectRewardItem(AtkUnitBase* addonExchange)
-    {
-        uint itemsOnCurrentPage = addonExchange->AtkValues[1].UInt;
-        for (uint i = 0; i < itemsOnCurrentPage; ++i)
-        {
-            uint itemId = addonExchange->AtkValues[317 + i].UInt;
-            if (itemId == _selectedRewardItem.ItemId)
-            {
-                long toBuy = (GetCurrentSealCount() - _configuration.ReservedSealCount) / _selectedRewardItem.SealCost;
-                bool isVenture = _selectedRewardItem.ItemId == ItemIds.Venture;
-                if (isVenture)
-                    toBuy = Math.Min(toBuy, 65000 - GetCurrentVentureCount());
-
-                if (toBuy == 0)
-                {
-                    _turnInWindow.State = false;
-                    CurrentStage = Stage.RequestStop;
-                    break;
-                }
-
-                PluginLog.Information($"Selecting item {itemId}, {i}");
-                _chatGui.Print($"Buying {toBuy}x {_selectedRewardItem.Name}...");
-                var selectReward = stackalloc AtkValue[]
-                {
-                    new() { Type = ValueType.Int, Int = 0 },
-                    new() { Type = ValueType.Int, Int = (int)i },
-                    new() { Type = ValueType.Int, Int = (int)toBuy },
-                    new() { Type = 0, Int = 0 },
-                    new() { Type = ValueType.Bool, Byte = 1 },
-                    new() { Type = ValueType.Bool, Byte = 0 },
-                    new() { Type = 0, Int = 0 },
-                    new() { Type = 0, Int = 0 },
-                    new() { Type = 0, Int = 0 }
-                };
-                addonExchange->FireCallback(9, selectReward);
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private unsafe int GetCurrentSealCount()
-    {
-        InventoryManager* inventoryManager = InventoryManager.Instance();
-        switch ((GrandCompany)PlayerState.Instance()->GrandCompany)
-        {
-            case GrandCompany.Maelstrom:
-                return inventoryManager->GetInventoryItemCount(20, false, false, false);
-            case GrandCompany.TwinAdder:
-                return inventoryManager->GetInventoryItemCount(21, false, false, false);
-            case GrandCompany.ImmortalFlames:
-                return inventoryManager->GetInventoryItemCount(22, false, false, false);
-            default:
-                return 0;
-        }
-    }
-
-    internal unsafe GrandCompany GetGrandCompany() => (GrandCompany)PlayerState.Instance()->GrandCompany;
-
-    internal unsafe byte GetGrandCompanyRank() => PlayerState.Instance()->GetGrandCompanyRank();
-
-    private int GetPersonnelOfficerId()
-    {
-        return GetGrandCompany() switch
-        {
-            GrandCompany.Maelstrom => 0xF4B94,
-            GrandCompany.ImmortalFlames => 0xF4B97,
-            GrandCompany.TwinAdder => 0xF4B9A,
-            _ => int.MaxValue,
-        };
-    }
-
-    private int GetQuartermasterId()
-    {
-        return GetGrandCompany() switch
-        {
-            GrandCompany.Maelstrom => 0xF4B93,
-            GrandCompany.ImmortalFlames => 0xF4B96,
-            GrandCompany.TwinAdder => 0xF4B99,
-            _ => int.MaxValue,
-        };
-    }
-
-    private uint GetSealCap() => _sealCaps.TryGetValue(GetGrandCompanyRank(), out var cap) ? cap : 0;
-
-    private unsafe int GetCurrentVentureCount()
-    {
-        InventoryManager* inventoryManager = InventoryManager.Instance();
-        return inventoryManager->GetInventoryItemCount(ItemIds.Venture, false, false, false);
-    }
-
-    private unsafe bool SelectSelectString(int choice)
-    {
-        if (TryGetAddonByName<AddonSelectString>("SelectString", out var addonSelectString) &&
-            IsAddonReady(&addonSelectString->AtkUnitBase))
-        {
-            addonSelectString->AtkUnitBase.FireCallbackInt(choice);
-            return true;
-        }
-
-        return false;
-    }
-
-    private unsafe bool SelectSelectYesno(int choice, Predicate<string> predicate)
-    {
-        if (TryGetAddonByName<AddonSelectYesno>("SelectYesno", out var addonSelectYesno) &&
-            IsAddonReady(&addonSelectYesno->AtkUnitBase) &&
-            predicate(MemoryHelper.ReadSeString(&addonSelectYesno->PromptText->NodeText).ToString()))
-        {
-            PluginLog.Information(
-                $"Selecting choice={choice} for '{MemoryHelper.ReadSeString(&addonSelectYesno->PromptText->NodeText)}'");
-
-            addonSelectYesno->AtkUnitBase.FireCallbackInt(choice);
-            return true;
-        }
-
-        return false;
-    }
-
-    private decimal GetSealMultiplier()
-    {
-        // priority seal allowance
-        if (_clientState.LocalPlayer!.StatusList.Any(x => x.StatusId == 1078))
-            return 1.15m;
-
-        // seal sweetener 1/2
-        var fcStatus = _clientState.LocalPlayer!.StatusList.FirstOrDefault(x => x.StatusId == 414);
-        if (fcStatus != null)
-        {
-            return 1m + fcStatus.StackCount / 100m;
-        }
-
-        return 1;
-    }
-
-    private unsafe void InteractWithTarget(GameObject obj)
-    {
-        PluginLog.Information($"Setting target to {obj}");
-        if (_targetManager.Target == null || _targetManager.Target != obj)
-        {
-            _targetManager.Target = obj;
-        }
-
-        TargetSystem.Instance()->InteractWithObject(
-            (FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject*)obj.Address, false);
     }
 
     private void SaveYesAlready()
@@ -508,27 +268,5 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         }
 
         _yesAlreadyState = (false, null);
-    }
-
-    internal enum Stage
-    {
-        TargetPersonnelOfficer,
-        OpenGcSupply,
-        SelectExpertDeliveryTab,
-        SelectItemToTurnIn,
-        TurnInSelected,
-        FinalizeTurnIn,
-        CloseGcSupply,
-        CloseGcSupplyThenStop,
-
-        TargetQuartermaster,
-        SelectRewardTier,
-        SelectRewardSubCategory,
-        SelectReward,
-        ConfirmReward,
-        CloseGcExchange,
-
-        RequestStop,
-        Stopped,
     }
 }

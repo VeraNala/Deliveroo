@@ -1,15 +1,12 @@
 ﻿using System.Collections.Generic;
-using System.Data.SqlTypes;
 using System.Linq;
-using Dalamud;
 using Dalamud.Data;
-using Dalamud.Logging;
 using Lumina.Excel.GeneratedSheets;
 using GrandCompany = FFXIVClientStructs.FFXIV.Client.UI.Agent.GrandCompany;
 
 namespace Deliveroo.GameData;
 
-internal class GcRewardsCache
+internal sealed class GcRewardsCache
 {
     public GcRewardsCache(DataManager dataManager)
     {
@@ -17,7 +14,7 @@ internal class GcRewardsCache
             .Where(x => x.RowId > 0)
             .ToDictionary(x => x.RowId,
                 x =>
-                    (Gc: (GrandCompany)x.GrandCompany.Row,
+                    (GrandCompany: (GrandCompany)x.GrandCompany.Row,
                         Tier: (RewardTier)x.Tier,
                         SubCategory: (RewardSubCategory)x.SubCategory));
 
@@ -28,11 +25,11 @@ internal class GcRewardsCache
         foreach (var item in items)
         {
             var category = categories[item.RowId];
-            Rewards[category.Gc].Add(new GcRewardItem
+            Rewards[category.GrandCompany].Add(new GcRewardItem
             {
                 ItemId = item.Item.Row,
                 Name = item.Item.Value!.Name.ToString(),
-                GrandCompany = category.Gc,
+                GrandCompany = category.GrandCompany,
                 Tier = category.Tier,
                 SubCategory = category.SubCategory,
                 RequiredRank = item.RequiredGrandCompanyRank.Row,
@@ -48,4 +45,7 @@ internal class GcRewardsCache
         { GrandCompany.TwinAdder, new() },
         { GrandCompany.ImmortalFlames, new() }
     };
+
+    public GcRewardItem GetReward(GrandCompany grandCompany, uint itemId)
+        => Rewards[grandCompany].Single(x => x.ItemId == itemId);
 }

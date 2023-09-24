@@ -8,10 +8,17 @@ internal sealed class Configuration : IPluginConfiguration
     public int Version { get; set; } = 1;
 
     public List<uint> ItemsAvailableForPurchase { get; set; } = new();
-    public uint SelectedPurchaseItemId { get; set; } = 0;
+    public List<PurchasePriority> ItemsToPurchase { get; set; } = new();
 
     public int ReservedSealCount { get; set; } = 0;
     public ItemFilterType ItemFilter { get; set; } = ItemFilterType.HideGearSetItems;
+    public bool IgnoreCertainLimitations { get; set; } = false;
+
+    internal sealed class PurchasePriority
+    {
+        public uint ItemId { get; set; }
+        public int Limit { get; set; }
+    }
 
     public enum ItemFilterType
     {

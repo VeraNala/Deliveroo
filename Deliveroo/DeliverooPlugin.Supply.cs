@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Logging;
-using Dalamud.Memory;
 using Deliveroo.GameData;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
@@ -92,6 +92,7 @@ partial class DeliverooPlugin
 
             var agent = (AgentGrandCompanySupply*)agentInterface;
             List<TurnInItem> items = BuildTurnInList(agent);
+            _turnInWindow.EstimatedGcSeals = GetCurrentSealCount() + items.Sum(x => x.SealsWithBonus);
             if (items.Count == 0 || addon->UldManager.NodeList[20]->IsVisible)
             {
                 CurrentStage = Stage.CloseGcSupplyThenStop;
@@ -151,7 +152,7 @@ partial class DeliverooPlugin
     {
         if (SelectSelectString(3))
         {
-            if (!_selectedRewardItem.IsValid())
+            if (GetNextItemToPurchase() == null)
             {
                 _turnInWindow.State = false;
                 CurrentStage = Stage.RequestStop;
@@ -169,13 +170,13 @@ partial class DeliverooPlugin
     {
         if (SelectSelectString(3))
         {
-            if (!_selectedRewardItem.IsValid())
+            if (GetNextItemToPurchase() == null)
             {
                 _turnInWindow.State = false;
                 CurrentStage = Stage.RequestStop;
             }
             else if (GetCurrentSealCount() <=
-                     _configuration.ReservedSealCount + _selectedRewardItem.SealCost)
+                     _configuration.ReservedSealCount + GetNextItemToPurchase()!.SealCost)
             {
                 _turnInWindow.State = false;
                 CurrentStage = Stage.RequestStop;
