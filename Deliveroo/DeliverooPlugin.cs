@@ -4,6 +4,7 @@ using System.Linq;
 using Dalamud.Data;
 using Dalamud.Game;
 using Dalamud.Game.ClientState;
+using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Objects;
 using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Game.Gui;
@@ -16,6 +17,7 @@ using Deliveroo.Windows;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using Lumina.Excel.GeneratedSheets;
+using Condition = Dalamud.Game.ClientState.Conditions.Condition;
 
 namespace Deliveroo;
 
@@ -30,6 +32,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
     private readonly ClientState _clientState;
     private readonly ObjectTable _objectTable;
     private readonly TargetManager _targetManager;
+    private readonly Condition _condition;
 
     // ReSharper disable once PrivateFieldCanBeConvertedToLocalVariable
     private readonly Configuration _configuration;
@@ -51,7 +54,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
 
     public DeliverooPlugin(DalamudPluginInterface pluginInterface, ChatGui chatGui, GameGui gameGui,
         Framework framework, ClientState clientState, ObjectTable objectTable, TargetManager targetManager,
-        DataManager dataManager)
+        DataManager dataManager, Condition condition)
     {
         _pluginInterface = pluginInterface;
         _chatGui = chatGui;
@@ -60,6 +63,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         _clientState = clientState;
         _objectTable = objectTable;
         _targetManager = targetManager;
+        _condition = condition;
 
         var dalamudReflector = new DalamudReflector(_pluginInterface, _framework);
         _yesAlreadyIpc = new YesAlreadyIpc(dalamudReflector);
@@ -96,6 +100,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
     {
         _turnInWindow.Error = string.Empty;
         if (!_clientState.IsLoggedIn || _clientState.TerritoryType is not 128 and not 130 and not 132 ||
+            _condition[ConditionFlag.OccupiedInCutSceneEvent] ||
             GetDistanceToNpc(GetQuartermasterId(), out GameObject? quartermaster) >= 7f ||
             GetDistanceToNpc(GetPersonnelOfficerId(), out GameObject? personnelOfficer) >= 7f ||
             _configWindow.IsOpen)
