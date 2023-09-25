@@ -177,7 +177,8 @@ partial class DeliverooPlugin
 
         if (SelectSelectYesno(0, s => s.StartsWith("Exchange ")))
         {
-            if (GetNextItemToPurchase(item) != null)
+            var nextItem = GetNextItemToPurchase(item);
+            if (nextItem != null && GetCurrentSealCount() >= _configuration.ReservedSealCount + nextItem.SealCost)
                 CurrentStage = Stage.SelectRewardTier;
             else
                 CurrentStage = Stage.CloseGcExchange;
