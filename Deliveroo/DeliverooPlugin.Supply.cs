@@ -73,7 +73,7 @@ partial class DeliverooPlugin
                 return;
 
             AtkUnitBase* addon = GetAddonById(addonId);
-            if (addon == null || !IsAddonReady(addon) || addon->UldManager.NodeListCount <= 20)
+            if (addon == null || !IsAddonReady(addon))
                 return;
 
             var addonGc = (AddonGrandCompanySupplyList*)addon;
