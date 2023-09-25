@@ -11,7 +11,6 @@ internal sealed class Configuration : IPluginConfiguration
     public List<PurchasePriority> ItemsToPurchase { get; set; } = new();
 
     public int ReservedSealCount { get; set; } = 0;
-    public ItemFilterType ItemFilter { get; set; } = ItemFilterType.HideGearSetItems;
     public bool IgnoreCertainLimitations { get; set; } = false;
 
     internal sealed class PurchasePriority
@@ -20,10 +19,4 @@ internal sealed class Configuration : IPluginConfiguration
         public int Limit { get; set; }
     }
 
-    public enum ItemFilterType
-    {
-        ShowAllItems = 0,
-        HideGearSetItems = 1,
-        HideArmouryChestItems = 2,
-    }
 }

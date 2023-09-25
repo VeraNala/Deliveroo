@@ -86,10 +86,11 @@ partial class DeliverooPlugin
                 return;
             }
 
-            if (addonGc->SelectedFilter == 0 || addonGc->SelectedFilter != (int)_configuration.ItemFilter)
+            ItemFilterType configuredFilter = ResolveSelectedSupplyFilter();
+            if (addonGc->SelectedFilter == 0 || addonGc->SelectedFilter != (int)configuredFilter)
             {
                 _turnInWindow.Error =
-                    $"Wrong filter selected (expected {_configuration.ItemFilter}, but is {(Configuration.ItemFilterType)addonGc->SelectedFilter})";
+                    $"Wrong filter selected (expected {configuredFilter}, but is {(ItemFilterType)addonGc->SelectedFilter})";
                 return;
             }
 
@@ -169,7 +170,7 @@ partial class DeliverooPlugin
             var updateFilter = stackalloc AtkValue[]
             {
                 new() { Type = ValueType.Int, Int = 5 },
-                new() { Type = ValueType.Int, Int = (int)_configuration.ItemFilter },
+                new() { Type = ValueType.Int, Int = (int)ResolveSelectedSupplyFilter() },
                 new() { Type = 0, Int = 0 }
             };
             addonSupplyList->AtkUnitBase.FireCallback(3, updateFilter);
@@ -216,5 +217,13 @@ partial class DeliverooPlugin
                 CurrentStage = Stage.TargetQuartermaster;
             }
         }
+    }
+
+    private ItemFilterType ResolveSelectedSupplyFilter()
+    {
+        if (CharacterConfiguration is { UseHideArmouryChestItemsFilter: true })
+            return ItemFilterType.HideArmouryChestItems;
+
+        return ItemFilterType.HideGearSetItems;
     }
 }

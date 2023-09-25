@@ -2,8 +2,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using Dalamud.Game.ClientState;
 using Dalamud.Interface;
+using Dalamud.Interface.Components;
 using Dalamud.Interface.Windowing;
+using Dalamud.Logging;
 using Dalamud.Plugin;
 using Deliveroo.GameData;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
@@ -13,24 +16,24 @@ namespace Deliveroo.Windows;
 
 internal sealed class ConfigWindow : Window
 {
-    private static string[] _itemFilterValues = { "Hide Gear Set Items", "Hide Armoury Chest Items" };
-
     private readonly DalamudPluginInterface _pluginInterface;
     private readonly DeliverooPlugin _plugin;
     private readonly Configuration _configuration;
     private readonly GcRewardsCache _gcRewardsCache;
+    private readonly ClientState _clientState;
 
     private readonly Dictionary<uint, GcRewardItem> _itemLookup;
     private uint _dragDropSource = 0;
 
     public ConfigWindow(DalamudPluginInterface pluginInterface, DeliverooPlugin plugin, Configuration configuration,
-        GcRewardsCache gcRewardsCache)
+        GcRewardsCache gcRewardsCache, ClientState clientState)
         : base("Deliveroo - Configuration###DeliverooConfig")
     {
         _pluginInterface = pluginInterface;
         _plugin = plugin;
         _configuration = configuration;
         _gcRewardsCache = gcRewardsCache;
+        _clientState = clientState;
 
         _itemLookup = _gcRewardsCache.Rewards.Values
             .SelectMany(x => x)
@@ -58,6 +61,7 @@ internal sealed class ConfigWindow : Window
         if (ImGui.BeginTabBar("DeliverooConfigTabs"))
         {
             DrawBuyList();
+            DrawCharacterSpecificSettings();
             DrawAdditionalSettings();
 
             ImGui.EndTabBar();
@@ -154,7 +158,86 @@ internal sealed class ConfigWindow : Window
             else
             {
                 int currentItem = 0;
-                ImGui.Combo("Add Item", ref currentItem, new string[] { "(Not part of a GC)" }, 1);
+                ImGui.Combo("Add Item", ref currentItem, new[] { "(Not part of a GC)" }, 1);
+            }
+
+            ImGui.EndTabItem();
+        }
+    }
+
+    private void DrawCharacterSpecificSettings()
+    {
+        if (ImGui.BeginTabItem("Character Settings"))
+        {
+            if (_clientState is { IsLoggedIn: true, LocalContentId: > 0 })
+            {
+                string currentCharacterName = _clientState.LocalPlayer!.Name.ToString();
+                string currentWorldName = _clientState.LocalPlayer.HomeWorld.GameData!.Name.ToString();
+                ImGui.Text($"Current Character: {currentCharacterName} @ {currentWorldName}");
+                ImGui.Spacing();
+                ImGui.Separator();
+                ImGui.Spacing();
+
+                var charConfiguration = _plugin.CharacterConfiguration;
+                if (charConfiguration != null)
+                {
+
+                    bool disableForCharacter = charConfiguration.DisableForCharacter;
+                    if (ImGui.Checkbox("Disable plugin for this character", ref disableForCharacter))
+                    {
+                        charConfiguration.DisableForCharacter = disableForCharacter;
+                        charConfiguration.Save(_pluginInterface);
+                    }
+
+                    ImGui.BeginDisabled(charConfiguration.DisableForCharacter);
+                    bool useHideArmouryChestItemsFilter = charConfiguration.UseHideArmouryChestItemsFilter;
+                    if (ImGui.Checkbox("Use 'Hide Armoury Chest Items' filter", ref useHideArmouryChestItemsFilter))
+                    {
+                        charConfiguration.UseHideArmouryChestItemsFilter = useHideArmouryChestItemsFilter;
+                        charConfiguration.Save(_pluginInterface);
+                    }
+                    if (ImGui.IsItemHovered())
+                        ImGui.SetTooltip("The default filter for all characters is 'Hide Gear Set Items', but you may want to override this to hide all Armoury Chest items (regardless of whether they're part of a gear set) e.g. for your main character.");
+
+                    ImGui.EndDisabled();
+                    ImGui.Spacing();
+                    ImGui.Separator();
+                    ImGui.Spacing();
+
+                    ImGui.BeginDisabled(!ImGui.GetIO().KeyCtrl);
+                    if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.PersonCircleMinus,
+                            "Remove character-specific settings"))
+                    {
+                        charConfiguration.Delete(_pluginInterface);
+                        _plugin.CharacterConfiguration = null;
+                    }
+
+                    ImGui.EndDisabled();
+                    if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled) && !ImGui.GetIO().KeyCtrl)
+                        ImGui.SetTooltip(
+                            $"Hold CTRL to remove the configuration for {currentCharacterName} (non-reversible).");
+                }
+                else
+                {
+                    // no settings
+                    if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.PersonCirclePlus,
+                            "Enable character-specific settings"))
+                    {
+                        _plugin.CharacterConfiguration = new()
+                        {
+                            LocalContentId = _clientState.LocalContentId,
+                            CachedPlayerName = currentCharacterName,
+                            CachedWorldName = currentWorldName,
+                        };
+                        _plugin.CharacterConfiguration.Save(_pluginInterface);
+                        PluginLog.Information(
+                            $"Created character-specific configuration for {_clientState.LocalContentId}");
+                    }
+                }
+            }
+            else
+            {
+                ImGui.Text("You are not currently logged in.");
             }
 
             ImGui.EndTabItem();
@@ -170,14 +253,6 @@ internal sealed class ConfigWindow : Window
             if (ImGui.InputInt("Minimum Seals to keep (e.g. for Squadron Missions)", ref reservedSealCount, 1000))
             {
                 _configuration.ReservedSealCount = Math.Max(0, Math.Min(90_000, reservedSealCount));
-                Save();
-            }
-
-            ImGui.Separator();
-            int selectedItemFilter = Math.Max(0, (int)_configuration.ItemFilter - 1);
-            if (ImGui.Combo("Item Filter", ref selectedItemFilter, _itemFilterValues, _itemFilterValues.Length))
-            {
-                _configuration.ItemFilter = (Configuration.ItemFilterType)(selectedItemFilter + 1);
                 Save();
             }
 

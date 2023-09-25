@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Dalamud.Data;
 using Dalamud.Game;
@@ -18,6 +19,7 @@ using Deliveroo.Windows;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using Lumina.Excel.GeneratedSheets;
+using Newtonsoft.Json;
 using Condition = Dalamud.Game.ClientState.Conditions.Condition;
 
 namespace Deliveroo;
@@ -72,7 +74,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         _yesAlreadyIpc = new YesAlreadyIpc(dalamudReflector);
         _configuration = (Configuration?)_pluginInterface.GetPluginConfig() ?? new Configuration();
         _gcRewardsCache = new GcRewardsCache(dataManager);
-        _configWindow = new ConfigWindow(_pluginInterface, this, _configuration, _gcRewardsCache);
+        _configWindow = new ConfigWindow(_pluginInterface, this, _configuration, _gcRewardsCache, _clientState);
         _windowSystem.AddWindow(_configWindow);
         _turnInWindow = new TurnInWindow(this, _pluginInterface, _configuration, _gcRewardsCache, _configWindow);
         _windowSystem.AddWindow(_turnInWindow);
@@ -82,13 +84,21 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         _framework.Update += FrameworkUpdate;
         _pluginInterface.UiBuilder.Draw += _windowSystem.Draw;
         _pluginInterface.UiBuilder.OpenConfigUi += _configWindow.Toggle;
+        _clientState.Login += Login;
+        _clientState.Logout += Logout;
         _commandManager.AddHandler("/deliveroo", new CommandInfo(ProcessCommand)
         {
             HelpMessage = "Open the configuration"
         });
+
+        if (_clientState.IsLoggedIn)
+            Login(this, EventArgs.Empty);
     }
 
     public string Name => "Deliveroo";
+
+    internal CharacterConfiguration? CharacterConfiguration { get; set; }
+
 
     internal Stage CurrentStage
     {
@@ -103,13 +113,53 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         }
     }
 
+    private void Login(object? sender, EventArgs e)
+    {
+        try
+        {
+            CharacterConfiguration = CharacterConfiguration.Load(_pluginInterface, _clientState.LocalContentId);
+            if (CharacterConfiguration != null)
+            {
+                if (CharacterConfiguration.CachedPlayerName != _clientState.LocalPlayer!.Name.ToString() ||
+                    CharacterConfiguration.CachedWorldName !=
+                    _clientState.LocalPlayer.HomeWorld.GameData!.Name.ToString())
+                {
+                    CharacterConfiguration.CachedPlayerName = _clientState.LocalPlayer!.Name.ToString();
+                    CharacterConfiguration.CachedWorldName =
+                        _clientState.LocalPlayer.HomeWorld.GameData!.Name.ToString();
+
+                    CharacterConfiguration.Save(_pluginInterface);
+                }
+
+                PluginLog.Information($"Loaded character-specific information for {_clientState.LocalContentId}");
+            }
+            else
+            {
+                PluginLog.Verbose(
+                    $"No character-specific information for {_clientState.LocalContentId}");
+            }
+        }
+        catch (Exception ex)
+        {
+            PluginLog.Error(ex, "Unable to load character configuration");
+            CharacterConfiguration = null;
+        }
+    }
+
+    private void Logout(object? sender, EventArgs e)
+    {
+        CharacterConfiguration = null;
+    }
+
     private unsafe void FrameworkUpdate(Framework f)
     {
         _turnInWindow.Error = string.Empty;
-        if (!_clientState.IsLoggedIn || _clientState.TerritoryType is not 128 and not 130 and not 132 ||
+        if (!_clientState.IsLoggedIn ||
+            _clientState.TerritoryType is not 128 and not 130 and not 132 ||
             _condition[ConditionFlag.OccupiedInCutSceneEvent] ||
             GetDistanceToNpc(GetQuartermasterId(), out GameObject? quartermaster) >= 7f ||
             GetDistanceToNpc(GetPersonnelOfficerId(), out GameObject? personnelOfficer) >= 7f ||
+            CharacterConfiguration is { DisableForCharacter: true } ||
             _configWindow.IsOpen)
         {
             _turnInWindow.IsOpen = false;
@@ -241,6 +291,8 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
     public void Dispose()
     {
         _commandManager.RemoveHandler("/deliveroo");
+        _clientState.Logout -= Logout;
+        _clientState.Login -= Login;
         _pluginInterface.UiBuilder.OpenConfigUi -= _configWindow.Toggle;
         _pluginInterface.UiBuilder.Draw -= _windowSystem.Draw;
         _framework.Update -= FrameworkUpdate;
