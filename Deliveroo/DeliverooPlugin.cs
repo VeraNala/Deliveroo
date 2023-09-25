@@ -7,6 +7,7 @@ using Dalamud.Game.ClientState;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Objects;
 using Dalamud.Game.ClientState.Objects.Types;
+using Dalamud.Game.Command;
 using Dalamud.Game.Gui;
 using Dalamud.Interface.Windowing;
 using Dalamud.Logging;
@@ -33,6 +34,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
     private readonly ObjectTable _objectTable;
     private readonly TargetManager _targetManager;
     private readonly Condition _condition;
+    private readonly CommandManager _commandManager;
 
     // ReSharper disable once PrivateFieldCanBeConvertedToLocalVariable
     private readonly Configuration _configuration;
@@ -54,7 +56,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
 
     public DeliverooPlugin(DalamudPluginInterface pluginInterface, ChatGui chatGui, GameGui gameGui,
         Framework framework, ClientState clientState, ObjectTable objectTable, TargetManager targetManager,
-        DataManager dataManager, Condition condition)
+        DataManager dataManager, Condition condition, CommandManager commandManager)
     {
         _pluginInterface = pluginInterface;
         _chatGui = chatGui;
@@ -64,6 +66,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         _objectTable = objectTable;
         _targetManager = targetManager;
         _condition = condition;
+        _commandManager = commandManager;
 
         var dalamudReflector = new DalamudReflector(_pluginInterface, _framework);
         _yesAlreadyIpc = new YesAlreadyIpc(dalamudReflector);
@@ -79,6 +82,10 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         _framework.Update += FrameworkUpdate;
         _pluginInterface.UiBuilder.Draw += _windowSystem.Draw;
         _pluginInterface.UiBuilder.OpenConfigUi += _configWindow.Toggle;
+        _commandManager.AddHandler("/deliveroo", new CommandInfo(ProcessCommand)
+        {
+            HelpMessage = "Open the configuration"
+        });
     }
 
     public string Name => "Deliveroo";
@@ -233,12 +240,15 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
 
     public void Dispose()
     {
+        _commandManager.RemoveHandler("/deliveroo");
         _pluginInterface.UiBuilder.OpenConfigUi -= _configWindow.Toggle;
         _pluginInterface.UiBuilder.Draw -= _windowSystem.Draw;
         _framework.Update -= FrameworkUpdate;
 
         RestoreYesAlready();
     }
+
+    private void ProcessCommand(string command, string arguments) => _configWindow.Toggle();
 
     private void SaveYesAlready()
     {
