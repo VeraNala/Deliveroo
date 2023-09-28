@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System.Collections.Generic;
+using System.IO;
 using Dalamud.Plugin;
 using Newtonsoft.Json;
 
@@ -12,6 +13,8 @@ internal sealed class CharacterConfiguration
 
     public bool DisableForCharacter { get; set; } = false;
     public bool UseHideArmouryChestItemsFilter { get; set; } = false;
+    public bool OverrideItemsToPurchase { get; set; }
+    public List<Configuration.PurchasePriority> ItemsToPurchase { get; set; } = new();
 
     public static string ResolveFilePath(DalamudPluginInterface pluginInterface, ulong localContentId)
         => Path.Join(pluginInterface.GetPluginConfigDirectory(), $"char.{localContentId:X}.json");

@@ -49,6 +49,12 @@ internal sealed class TurnInWindow : Window
     public decimal Multiplier { private get; set; }
     public string Error { private get; set; } = string.Empty;
 
+    private bool UseCharacterSpecificItemsToPurchase => _plugin.CharacterConfiguration is {OverrideItemsToPurchase: true };
+
+    private IItemsToPurchase ItemsWrapper => UseCharacterSpecificItemsToPurchase
+        ? new CharacterSpecificItemsToPurchase(_plugin.CharacterConfiguration!, _pluginInterface)
+        : new GlobalItemsToPurchase(_configuration, _pluginInterface);
+
     public List<PurchaseItemRequest> SelectedItems
     {
         get
@@ -58,7 +64,7 @@ internal sealed class TurnInWindow : Window
                 return new List<PurchaseItemRequest>();
 
             var rank = _plugin.GetGrandCompanyRank();
-            return _configuration.ItemsToPurchase
+            return ItemsWrapper.GetItemsToPurchase()
                 .Where(x => x.ItemId != 0)
                 .Select(x => new { Item = x, Reward = _gcRewardsCache.GetReward(grandCompany, x.ItemId) })
                 .Where(x => x.Reward.RequiredRank <= rank)
@@ -126,7 +132,6 @@ internal sealed class TurnInWindow : Window
             ImGui.Separator();
             ImGui.BeginDisabled(state);
 
-            ImGui.Text("Items to buy:");
             DrawItemsToBuy(grandCompany);
 
             ImGui.EndDisabled();
@@ -138,6 +143,9 @@ internal sealed class TurnInWindow : Window
 
     private void DrawItemsToBuy(GrandCompany grandCompany)
     {
+        var itemsWrapper = ItemsWrapper;
+        ImGui.Text($"Items to buy ({itemsWrapper.Name}):");
+
         List<(uint ItemId, string Name, uint Rank)> comboValues = new()
             { (GcRewardItem.None.ItemId, GcRewardItem.None.Name, GcRewardItem.None.RequiredRank) };
         foreach (uint itemId in _configuration.ItemsAvailableForPurchase)
@@ -150,15 +158,14 @@ internal sealed class TurnInWindow : Window
                 comboValues.Add((itemId, gcReward.Name, gcReward.RequiredRank));
         }
 
-        if (_configuration.ItemsToPurchase.Count == 0)
-            _configuration.ItemsToPurchase.Add(new Configuration.PurchasePriority
-                { ItemId = GcRewardItem.None.ItemId, Limit = 0 });
+        if (itemsWrapper.GetItemsToPurchase().Count == 0)
+            itemsWrapper.Add(new Configuration.PurchasePriority { ItemId = GcRewardItem.None.ItemId, Limit = 0 });
 
         int? itemToRemove = null;
-        for (int i = 0; i < _configuration.ItemsToPurchase.Count; ++i)
+        for (int i = 0; i < itemsWrapper.GetItemsToPurchase().Count; ++i)
         {
             ImGui.PushID($"ItemToBuy{i}");
-            var item = _configuration.ItemsToPurchase[i];
+            var item = itemsWrapper.GetItemsToPurchase()[i];
             int comboValueIndex = comboValues.FindIndex(x => x.ItemId == item.ItemId);
             if (comboValueIndex < 0)
             {
@@ -175,7 +182,7 @@ internal sealed class TurnInWindow : Window
                 _pluginInterface.SavePluginConfig(_configuration);
             }
 
-            if (_configuration.ItemsToPurchase.Count >= 2)
+            if (itemsWrapper.GetItemsToPurchase().Count >= 2)
             {
                 ImGui.SameLine();
                 if (ImGuiComponents.IconButton($"###Remove{i}", FontAwesomeIcon.Times))
@@ -196,13 +203,13 @@ internal sealed class TurnInWindow : Window
                     if (item.ItemId == ItemIds.Venture)
                         item.Limit = Math.Min(item.Limit, 65_000);
 
-                    _pluginInterface.SavePluginConfig(_configuration);
+                    itemsWrapper.Save();
                 }
             }
             else if (item.Limit != 0)
             {
                 item.Limit = 0;
-                _pluginInterface.SavePluginConfig(_configuration);
+                itemsWrapper.Save();
             }
 
             if (comboValueIndex > 0 && comboValues[comboValueIndex].Rank > _plugin.GetGrandCompanyRank())
@@ -217,17 +224,16 @@ internal sealed class TurnInWindow : Window
 
         if (itemToRemove != null)
         {
-            _configuration.ItemsToPurchase.RemoveAt(itemToRemove.Value);
+            itemsWrapper.RemoveAt(itemToRemove.Value);
             _pluginInterface.SavePluginConfig(_configuration);
         }
 
-        if (_configuration.ItemsAvailableForPurchase.Any(x => _configuration.ItemsToPurchase.All(y => x != y.ItemId)))
+        if (_configuration.ItemsAvailableForPurchase.Any(x => itemsWrapper.GetItemsToPurchase().All(y => x != y.ItemId)))
         {
             if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.Plus, "Add Item"))
             {
-                _configuration.ItemsToPurchase.Add(new Configuration.PurchasePriority
-                    { ItemId = GcRewardItem.None.ItemId, Limit = 0 });
-                _pluginInterface.SavePluginConfig(_configuration);
+                itemsWrapper.Add(new Configuration.PurchasePriority { ItemId = GcRewardItem.None.ItemId, Limit = 0 });
+                itemsWrapper.Save();
             }
         }
     }
@@ -257,5 +263,67 @@ internal sealed class TurnInWindow : Window
 
             return Math.Min(limit, slotsThatCanBeUsed * stackSize);
         }
+    }
+
+    private interface IItemsToPurchase
+    {
+        string Name { get; }
+
+        IReadOnlyList<Configuration.PurchasePriority> GetItemsToPurchase();
+        void Add(Configuration.PurchasePriority purchasePriority);
+        void RemoveAt(int index);
+        void Save();
+    }
+
+    private sealed class CharacterSpecificItemsToPurchase : IItemsToPurchase
+    {
+        private readonly CharacterConfiguration _characterConfiguration;
+        private readonly DalamudPluginInterface _pluginInterface;
+
+        public CharacterSpecificItemsToPurchase(CharacterConfiguration characterConfiguration, DalamudPluginInterface pluginInterface)
+        {
+            _characterConfiguration = characterConfiguration;
+            _pluginInterface = pluginInterface;
+        }
+
+        public string Name => _characterConfiguration.CachedPlayerName ?? "?";
+
+        public IReadOnlyList<Configuration.PurchasePriority> GetItemsToPurchase()
+            => _characterConfiguration.ItemsToPurchase;
+
+        public void Add(Configuration.PurchasePriority purchasePriority)
+            => _characterConfiguration.ItemsToPurchase.Add(purchasePriority);
+
+        public void RemoveAt(int index)
+            => _characterConfiguration.ItemsToPurchase.RemoveAt(index);
+
+        public void Save()
+            => _characterConfiguration.Save(_pluginInterface);
+    }
+
+    private sealed class GlobalItemsToPurchase : IItemsToPurchase
+    {
+        private readonly Configuration _configuration;
+        private readonly DalamudPluginInterface _pluginInterface;
+
+        public GlobalItemsToPurchase(Configuration configuration, DalamudPluginInterface pluginInterface)
+        {
+            _configuration = configuration;
+            _pluginInterface = pluginInterface;
+        }
+
+        public string Name => "all characters";
+
+        public IReadOnlyList<Configuration.PurchasePriority> GetItemsToPurchase()
+            => _configuration.ItemsToPurchase;
+
+        public void Add(Configuration.PurchasePriority purchasePriority)
+            => _configuration.ItemsToPurchase.Add(purchasePriority);
+
+        public void RemoveAt(int index)
+            => _configuration.ItemsToPurchase.RemoveAt(index);
+
+        public void Save()
+            => _pluginInterface.SavePluginConfig(_configuration);
     }
 }

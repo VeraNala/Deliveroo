@@ -190,6 +190,25 @@ internal sealed class ConfigWindow : Window
                     }
 
                     ImGui.BeginDisabled(charConfiguration.DisableForCharacter);
+
+                    bool overrideItemsToPurchase = charConfiguration.OverrideItemsToPurchase;
+                    if (ImGui.Checkbox("Use custom purchase list for this character", ref overrideItemsToPurchase))
+                    {
+                        charConfiguration.OverrideItemsToPurchase = overrideItemsToPurchase;
+                        charConfiguration.Save(_pluginInterface);
+                    }
+
+                    if (charConfiguration.ItemsToPurchase.Count > 1 ||
+                        (charConfiguration.ItemsToPurchase.Count == 1 && charConfiguration.ItemsToPurchase[0].ItemId != GcRewardItem.None.ItemId))
+                    {
+                        ImGui.SameLine();
+                        if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.Trash, "Clear"))
+                        {
+                            charConfiguration.ItemsToPurchase.Clear();
+                            charConfiguration.Save(_pluginInterface);
+                        }
+                    }
+
                     bool useHideArmouryChestItemsFilter = charConfiguration.UseHideArmouryChestItemsFilter;
                     if (ImGui.Checkbox("Use 'Hide Armoury Chest Items' filter", ref useHideArmouryChestItemsFilter))
                     {
