@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using Dalamud.Data;
 using Dalamud.Game;
@@ -19,7 +18,6 @@ using Deliveroo.Windows;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using Lumina.Excel.GeneratedSheets;
-using Newtonsoft.Json;
 using Condition = Dalamud.Game.ClientState.Conditions.Condition;
 
 namespace Deliveroo;
@@ -93,6 +91,9 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
 
         if (_clientState.IsLoggedIn)
             Login(this, EventArgs.Empty);
+
+        if (_configuration.AddVentureIfNoItemToPurchaseSelected())
+            _pluginInterface.SavePluginConfig(_configuration);
     }
 
     public string Name => "Deliveroo";

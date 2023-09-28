@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using Dalamud.Configuration;
+using Deliveroo.GameData;
 
 namespace Deliveroo;
 
@@ -19,4 +20,14 @@ internal sealed class Configuration : IPluginConfiguration
         public int Limit { get; set; }
     }
 
+    public bool AddVentureIfNoItemToPurchaseSelected()
+    {
+        if (ItemsAvailableForPurchase.Count == 0)
+        {
+            ItemsAvailableForPurchase.Add(ItemIds.Venture);
+            return true;
+        }
+
+        return false;
+    }
 }

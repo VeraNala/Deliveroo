@@ -52,11 +52,8 @@ internal sealed class ConfigWindow : Window
 
     public override void Draw()
     {
-        if (_configuration.ItemsAvailableForPurchase.Count == 0)
-        {
-            _configuration.ItemsAvailableForPurchase.Add(ItemIds.Venture);
+        if (_configuration.AddVentureIfNoItemToPurchaseSelected())
             Save();
-        }
 
         if (ImGui.BeginTabBar("DeliverooConfigTabs"))
         {
