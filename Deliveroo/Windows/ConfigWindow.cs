@@ -94,15 +94,18 @@ internal sealed class ConfigWindow : Window
                         ImGui.EndDragDropSource();
                     }
 
-                    if (ImGui.BeginDragDropTarget() &&
-                        _dragDropSource > 0 &&
-                        ImGui.AcceptDragDropPayload("DeliverooDragDrop").NativePtr != null)
+                    if (ImGui.BeginDragDropTarget())
                     {
-                        itemToAdd = _dragDropSource;
-                        indexToAdd = i;
+                        if (_dragDropSource > 0 &&
+                            ImGui.AcceptDragDropPayload("DeliverooDragDrop").NativePtr != null)
+                        {
+                            itemToAdd = _dragDropSource;
+                            indexToAdd = i;
+
+                            _dragDropSource = 0;
+                        }
 
                         ImGui.EndDragDropTarget();
-                        _dragDropSource = 0;
                     }
 
                     ImGui.OpenPopupOnItemClick($"###ctx{i}", ImGuiPopupFlags.MouseButtonRight);
