@@ -157,8 +157,10 @@ internal sealed class ConfigWindow : Window
             }
             else
             {
+                ImGui.BeginDisabled();
                 int currentItem = 0;
                 ImGui.Combo("Add Item", ref currentItem, new[] { "(Not part of a GC)" }, 1);
+                ImGui.EndDisabled();
             }
 
             ImGui.EndTabItem();
