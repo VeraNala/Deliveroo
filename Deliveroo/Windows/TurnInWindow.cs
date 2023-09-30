@@ -152,14 +152,17 @@ internal sealed class TurnInWindow : Window
         {
             var gcReward = _gcRewardsCache.GetReward(grandCompany, itemId);
             int itemCount = _plugin.GetItemCount(itemId);
+            string itemName = gcReward.Name;
             if (itemCount > 0)
-                comboValues.Add((itemId, $"{gcReward.Name} ({itemCount:N0})", gcReward.RequiredRank));
-            else
-                comboValues.Add((itemId, gcReward.Name, gcReward.RequiredRank));
+                itemName += $" ({itemCount:N0})";
+            comboValues.Add((itemId, itemName, gcReward.RequiredRank));
         }
 
         if (itemsWrapper.GetItemsToPurchase().Count == 0)
+        {
             itemsWrapper.Add(new Configuration.PurchasePriority { ItemId = GcRewardItem.None.ItemId, Limit = 0 });
+            itemsWrapper.Save();
+        }
 
         int? itemToRemove = null;
         for (int i = 0; i < itemsWrapper.GetItemsToPurchase().Count; ++i)
@@ -171,7 +174,7 @@ internal sealed class TurnInWindow : Window
             {
                 item.ItemId = 0;
                 item.Limit = 0;
-                _pluginInterface.SavePluginConfig(_configuration);
+                itemsWrapper.Save();
 
                 comboValueIndex = 0;
             }
@@ -179,7 +182,7 @@ internal sealed class TurnInWindow : Window
             if (ImGui.Combo("", ref comboValueIndex, comboValues.Select(x => x.Name).ToArray(), comboValues.Count))
             {
                 item.ItemId = comboValues[comboValueIndex].ItemId;
-                _pluginInterface.SavePluginConfig(_configuration);
+                itemsWrapper.Save();
             }
 
             if (itemsWrapper.GetItemsToPurchase().Count >= 2)
@@ -225,7 +228,7 @@ internal sealed class TurnInWindow : Window
         if (itemToRemove != null)
         {
             itemsWrapper.RemoveAt(itemToRemove.Value);
-            _pluginInterface.SavePluginConfig(_configuration);
+            itemsWrapper.Save();
         }
 
         if (_configuration.ItemsAvailableForPurchase.Any(x => itemsWrapper.GetItemsToPurchase().All(y => x != y.ItemId)))
