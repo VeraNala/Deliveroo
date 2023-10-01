@@ -39,7 +39,6 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
     // ReSharper disable once PrivateFieldCanBeConvertedToLocalVariable
     private readonly Configuration _configuration;
 
-    // ReSharper disable once PrivateFieldCanBeConvertedToLocalVariable
     private readonly YesAlreadyIpc _yesAlreadyIpc;
 
     // ReSharper disable once PrivateFieldCanBeConvertedToLocalVariable
@@ -281,6 +280,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
                     break;
                 case Stage.Stopped:
                     break;
+
                 default:
                     PluginLog.Warning($"Unknown stage {CurrentStage}");
                     break;
