@@ -1,24 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Dalamud.Data;
-using Dalamud.Game;
-using Dalamud.Game.ClientState;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Objects;
 using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Game.Command;
-using Dalamud.Game.Gui;
 using Dalamud.Interface.Windowing;
-using Dalamud.Logging;
 using Dalamud.Plugin;
+using Dalamud.Plugin.Services;
 using Deliveroo.External;
 using Deliveroo.GameData;
 using Deliveroo.Windows;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using Lumina.Excel.GeneratedSheets;
-using Condition = Dalamud.Game.ClientState.Conditions.Condition;
 
 namespace Deliveroo;
 
@@ -27,14 +22,15 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
     private readonly WindowSystem _windowSystem = new(typeof(DeliverooPlugin).AssemblyQualifiedName);
 
     private readonly DalamudPluginInterface _pluginInterface;
-    private readonly ChatGui _chatGui;
-    private readonly GameGui _gameGui;
-    private readonly Framework _framework;
-    private readonly ClientState _clientState;
-    private readonly ObjectTable _objectTable;
-    private readonly TargetManager _targetManager;
-    private readonly Condition _condition;
-    private readonly CommandManager _commandManager;
+    private readonly IChatGui _chatGui;
+    private readonly IGameGui _gameGui;
+    private readonly IFramework _framework;
+    private readonly IClientState _clientState;
+    private readonly IObjectTable _objectTable;
+    private readonly ITargetManager _targetManager;
+    private readonly ICondition _condition;
+    private readonly ICommandManager _commandManager;
+    private readonly IPluginLog _pluginLog;
 
     // ReSharper disable once PrivateFieldCanBeConvertedToLocalVariable
     private readonly Configuration _configuration;
@@ -53,9 +49,9 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
     private List<PurchaseItemRequest> _itemsToPurchaseNow = new();
     private (bool Saved, bool? PreviousState) _yesAlreadyState = (false, null);
 
-    public DeliverooPlugin(DalamudPluginInterface pluginInterface, ChatGui chatGui, GameGui gameGui,
-        Framework framework, ClientState clientState, ObjectTable objectTable, TargetManager targetManager,
-        DataManager dataManager, Condition condition, CommandManager commandManager)
+    public DeliverooPlugin(DalamudPluginInterface pluginInterface, IChatGui chatGui, IGameGui gameGui,
+        IFramework framework, IClientState clientState, IObjectTable objectTable, ITargetManager targetManager,
+        IDataManager dataManager, ICondition condition, ICommandManager commandManager, IPluginLog pluginLog)
     {
         _pluginInterface = pluginInterface;
         _chatGui = chatGui;
@@ -66,12 +62,13 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         _targetManager = targetManager;
         _condition = condition;
         _commandManager = commandManager;
+        _pluginLog = pluginLog;
 
-        var dalamudReflector = new DalamudReflector(_pluginInterface, _framework);
+        var dalamudReflector = new DalamudReflector(_pluginInterface, _framework, _pluginLog);
         _yesAlreadyIpc = new YesAlreadyIpc(dalamudReflector);
         _configuration = (Configuration?)_pluginInterface.GetPluginConfig() ?? new Configuration();
         _gcRewardsCache = new GcRewardsCache(dataManager);
-        _configWindow = new ConfigWindow(_pluginInterface, this, _configuration, _gcRewardsCache, _clientState);
+        _configWindow = new ConfigWindow(_pluginInterface, this, _configuration, _gcRewardsCache, _clientState, _pluginLog);
         _windowSystem.AddWindow(_configWindow);
         _turnInWindow = new TurnInWindow(this, _pluginInterface, _configuration, _gcRewardsCache, _configWindow);
         _windowSystem.AddWindow(_turnInWindow);
@@ -89,7 +86,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         });
 
         if (_clientState.IsLoggedIn)
-            Login(this, EventArgs.Empty);
+            Login();
 
         if (_configuration.AddVentureIfNoItemToPurchaseSelected())
             _pluginInterface.SavePluginConfig(_configuration);
@@ -107,13 +104,13 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         {
             if (_currentStageInternal != value)
             {
-                PluginLog.Information($"Changing stage from {_currentStageInternal} to {value}");
+                _pluginLog.Information($"Changing stage from {_currentStageInternal} to {value}");
                 _currentStageInternal = value;
             }
         }
     }
 
-    private void Login(object? sender, EventArgs e)
+    private void Login()
     {
         try
         {
@@ -131,27 +128,27 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
                     CharacterConfiguration.Save(_pluginInterface);
                 }
 
-                PluginLog.Information($"Loaded character-specific information for {_clientState.LocalContentId}");
+                _pluginLog.Information($"Loaded character-specific information for {_clientState.LocalContentId}");
             }
             else
             {
-                PluginLog.Verbose(
+                _pluginLog.Verbose(
                     $"No character-specific information for {_clientState.LocalContentId}");
             }
         }
         catch (Exception ex)
         {
-            PluginLog.Error(ex, "Unable to load character configuration");
+            _pluginLog.Error(ex, "Unable to load character configuration");
             CharacterConfiguration = null;
         }
     }
 
-    private void Logout(object? sender, EventArgs e)
+    private void Logout()
     {
         CharacterConfiguration = null;
     }
 
-    private unsafe void FrameworkUpdate(Framework f)
+    private unsafe void FrameworkUpdate(IFramework f)
     {
         _turnInWindow.Error = string.Empty;
         if (!_clientState.IsLoggedIn ||
@@ -191,12 +188,12 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
                 _itemsToPurchaseNow = _turnInWindow.SelectedItems;
                 if (_itemsToPurchaseNow.Count > 0)
                 {
-                    PluginLog.Information("Items to purchase:");
+                    _pluginLog.Information("Items to purchase:");
                     foreach (var item in _itemsToPurchaseNow)
-                        PluginLog.Information($"  {item.Name} (limit = {item.EffectiveLimit})");
+                        _pluginLog.Information($"  {item.Name} (limit = {item.EffectiveLimit})");
                 }
                 else
-                    PluginLog.Information("No items to purchase configured or available");
+                    _pluginLog.Information("No items to purchase configured or available");
 
 
                 var nextItem = GetNextItemToPurchase();
@@ -282,7 +279,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
                     break;
 
                 default:
-                    PluginLog.Warning($"Unknown stage {CurrentStage}");
+                    _pluginLog.Warning($"Unknown stage {CurrentStage}");
                     break;
             }
         }
@@ -307,19 +304,19 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
     {
         if (_yesAlreadyState.Saved)
         {
-            PluginLog.Information("Not overwriting yesalready state");
+            _pluginLog.Information("Not overwriting yesalready state");
             return;
         }
 
         _yesAlreadyState = (true, _yesAlreadyIpc.DisableIfNecessary());
-        PluginLog.Information($"Previous yesalready state: {_yesAlreadyState.PreviousState}");
+        _pluginLog.Information($"Previous yesalready state: {_yesAlreadyState.PreviousState}");
     }
 
     private void RestoreYesAlready()
     {
         if (_yesAlreadyState.Saved)
         {
-            PluginLog.Information($"Restoring previous yesalready state: {_yesAlreadyState.PreviousState}");
+            _pluginLog.Information($"Restoring previous yesalready state: {_yesAlreadyState.PreviousState}");
             if (_yesAlreadyState.PreviousState == true)
                 _yesAlreadyIpc.Enable();
         }

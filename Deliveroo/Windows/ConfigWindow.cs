@@ -2,12 +2,12 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
-using Dalamud.Game.ClientState;
 using Dalamud.Interface;
 using Dalamud.Interface.Components;
+using Dalamud.Interface.Utility;
 using Dalamud.Interface.Windowing;
-using Dalamud.Logging;
 using Dalamud.Plugin;
+using Dalamud.Plugin.Services;
 using Deliveroo.GameData;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using ImGuiNET;
@@ -20,13 +20,14 @@ internal sealed class ConfigWindow : Window
     private readonly DeliverooPlugin _plugin;
     private readonly Configuration _configuration;
     private readonly GcRewardsCache _gcRewardsCache;
-    private readonly ClientState _clientState;
+    private readonly IClientState _clientState;
+    private readonly IPluginLog _pluginLog;
 
     private readonly Dictionary<uint, GcRewardItem> _itemLookup;
     private uint _dragDropSource = 0;
 
     public ConfigWindow(DalamudPluginInterface pluginInterface, DeliverooPlugin plugin, Configuration configuration,
-        GcRewardsCache gcRewardsCache, ClientState clientState)
+        GcRewardsCache gcRewardsCache, IClientState clientState, IPluginLog pluginLog)
         : base("Deliveroo - Configuration###DeliverooConfig")
     {
         _pluginInterface = pluginInterface;
@@ -34,6 +35,7 @@ internal sealed class ConfigWindow : Window
         _configuration = configuration;
         _gcRewardsCache = gcRewardsCache;
         _clientState = clientState;
+        _pluginLog = pluginLog;
 
         _itemLookup = _gcRewardsCache.Rewards.Values
             .SelectMany(x => x)
@@ -251,7 +253,7 @@ internal sealed class ConfigWindow : Window
                             CachedWorldName = currentWorldName,
                         };
                         _plugin.CharacterConfiguration.Save(_pluginInterface);
-                        PluginLog.Information(
+                        _pluginLog.Information(
                             $"Created character-specific configuration for {_clientState.LocalContentId}");
                     }
                 }

@@ -4,7 +4,6 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Game.ClientState.Objects.Types;
-using Dalamud.Logging;
 using Dalamud.Memory;
 using Deliveroo.GameData;
 using FFXIVClientStructs.FFXIV.Client.Game;
@@ -21,7 +20,7 @@ partial class DeliverooPlugin
 {
     private unsafe void InteractWithTarget(GameObject obj)
     {
-        PluginLog.Information($"Setting target to {obj}");
+        _pluginLog.Information($"Setting target to {obj}");
         if (_targetManager.Target == null || _targetManager.Target != obj)
         {
             _targetManager.Target = obj;
@@ -165,12 +164,9 @@ partial class DeliverooPlugin
         var unitManagers = &AtkStage.GetSingleton()->RaptureAtkUnitManager->AtkUnitManager.DepthLayerOneList;
         for (var i = 0; i < 18; i++)
         {
-            var unitManager = &unitManagers[i];
-            var unitBaseArray = &(unitManager->AtkUnitEntries);
-            for (var j = 0; j < unitManager->Count; j++)
+            foreach (AtkUnitBase* unitBase in unitManagers[i].EntriesSpan)
             {
-                var unitBase = unitBaseArray[j];
-                if (unitBase->ID == id)
+                if (unitBase != null && unitBase->ID == id)
                 {
                     return unitBase;
                 }
@@ -219,7 +215,7 @@ partial class DeliverooPlugin
             IsAddonReady(&addonSelectYesno->AtkUnitBase) &&
             predicate(MemoryHelper.ReadSeString(&addonSelectYesno->PromptText->NodeText).ToString()))
         {
-            PluginLog.Information(
+            _pluginLog.Information(
                 $"Selecting choice={choice} for '{MemoryHelper.ReadSeString(&addonSelectYesno->PromptText->NodeText)}'");
 
             addonSelectYesno->AtkUnitBase.FireCallbackInt(choice);

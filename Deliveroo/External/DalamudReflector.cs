@@ -6,6 +6,7 @@ using Dalamud.Plugin;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using Dalamud.Plugin.Services;
 
 namespace Deliveroo.External;
 
@@ -17,14 +18,16 @@ namespace Deliveroo.External;
 internal sealed class DalamudReflector : IDisposable
 {
     private readonly DalamudPluginInterface _pluginInterface;
-    private readonly Framework _framework;
+    private readonly IFramework _framework;
+    private readonly IPluginLog _pluginLog;
     private readonly Dictionary<string, IDalamudPlugin> _pluginCache = new();
     private bool _pluginsChanged = false;
 
-    public DalamudReflector(DalamudPluginInterface pluginInterface, Framework framework)
+    public DalamudReflector(DalamudPluginInterface pluginInterface, IFramework framework, IPluginLog pluginLog)
     {
         _pluginInterface = pluginInterface;
         _framework = framework;
+        _pluginLog = pluginLog;
         var pm = GetPluginManager();
         pm.GetType().GetEvent("OnInstalledPluginsChanged")!.AddEventHandler(pm, OnInstalledPluginsChanged);
 
@@ -39,7 +42,7 @@ internal sealed class DalamudReflector : IDisposable
         pm.GetType().GetEvent("OnInstalledPluginsChanged")!.RemoveEventHandler(pm, OnInstalledPluginsChanged);
     }
 
-    private void FrameworkUpdate(Framework framework)
+    private void FrameworkUpdate(IFramework framework)
     {
         if (_pluginsChanged)
         {
@@ -80,7 +83,7 @@ internal sealed class DalamudReflector : IDisposable
                         .GetField("instance", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(t);
                     if (plugin == null)
                     {
-                        PluginLog.Warning($"[DalamudReflector] Found requested plugin {internalName} but it was null");
+                        _pluginLog.Warning($"[DalamudReflector] Found requested plugin {internalName} but it was null");
                     }
                     else
                     {
@@ -98,7 +101,7 @@ internal sealed class DalamudReflector : IDisposable
         {
             if (!suppressErrors)
             {
-                PluginLog.Error(e, $"Can't find {internalName} plugin: {e.Message}");
+                _pluginLog.Error(e, $"Can't find {internalName} plugin: {e.Message}");
             }
 
             instance = null;
@@ -108,7 +111,7 @@ internal sealed class DalamudReflector : IDisposable
 
     private void OnInstalledPluginsChanged()
     {
-        PluginLog.Verbose("Installed plugins changed event fired");
+        _pluginLog.Verbose("Installed plugins changed event fired");
         _pluginsChanged = true;
     }
 }

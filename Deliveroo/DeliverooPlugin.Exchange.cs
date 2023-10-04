@@ -1,6 +1,5 @@
 ﻿using System;
 using Dalamud.Game.ClientState.Objects.Types;
-using Dalamud.Logging;
 using Deliveroo.GameData;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using ValueType = FFXIVClientStructs.FFXIV.Component.GUI.ValueType;
@@ -51,7 +50,7 @@ partial class DeliverooPlugin
         if (TryGetAddonByName<AtkUnitBase>("GrandCompanyExchange", out var addonExchange) &&
             IsAddonReady(addonExchange))
         {
-            PluginLog.Information($"Selecting tier 1, {(int)item.Tier - 1}");
+            _pluginLog.Information($"Selecting tier 1, {(int)item.Tier - 1}");
             var selectRank = stackalloc AtkValue[]
             {
                 new() { Type = ValueType.Int, Int = 1 },
@@ -82,7 +81,7 @@ partial class DeliverooPlugin
         if (TryGetAddonByName<AtkUnitBase>("GrandCompanyExchange", out var addonExchange) &&
             IsAddonReady(addonExchange))
         {
-            PluginLog.Information($"Selecting subcategory 2, {(int)item.SubCategory}");
+            _pluginLog.Information($"Selecting subcategory 2, {(int)item.SubCategory}");
             var selectType = stackalloc AtkValue[]
             {
                 new() { Type = ValueType.Int, Int = 2 },
@@ -131,7 +130,7 @@ partial class DeliverooPlugin
             uint itemId = addonExchange->AtkValues[317 + i].UInt;
             if (itemId == item.ItemId)
             {
-                PluginLog.Information($"Selecting item {itemId}, {i}");
+                _pluginLog.Information($"Selecting item {itemId}, {i}");
                 long toBuy = (GetCurrentSealCount() - _configuration.ReservedSealCount) / item.SealCost;
                 toBuy = Math.Min(toBuy, item.EffectiveLimit - GetItemCount(item.ItemId));
 
@@ -140,7 +139,7 @@ partial class DeliverooPlugin
 
                 if (toBuy <= 0)
                 {
-                    PluginLog.Information($"Items to buy = {toBuy}");
+                    _pluginLog.Information($"Items to buy = {toBuy}");
                     return false;
                 }
 
@@ -162,7 +161,7 @@ partial class DeliverooPlugin
             }
         }
 
-        PluginLog.Warning("Could not find selected reward item");
+        _pluginLog.Warning("Could not find selected reward item");
         return false;
     }
 

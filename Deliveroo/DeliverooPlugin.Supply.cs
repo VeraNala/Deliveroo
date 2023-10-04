@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using Dalamud.Game.ClientState.Objects.Types;
-using Dalamud.Logging;
-using Dalamud.Memory;
 using Deliveroo.GameData;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
@@ -46,12 +43,12 @@ partial class DeliverooPlugin
             var addonGc = (AddonGrandCompanySupplyList*)addon;
             if (addonGc->SelectedTab == 2)
             {
-                PluginLog.Information("Tab already selected, probably due to haseltweaks");
+                _pluginLog.Information("Tab already selected, probably due to haseltweaks");
                 CurrentStage = Stage.SelectItemToTurnIn;
                 return;
             }
 
-            PluginLog.Information("Switching to expert deliveries");
+            _pluginLog.Information("Switching to expert deliveries");
             var selectExpertDeliveryTab = stackalloc AtkValue[]
             {
                 new() { Type = ValueType.Int, Int = 0 },

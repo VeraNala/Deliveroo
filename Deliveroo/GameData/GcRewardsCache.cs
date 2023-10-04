@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using Dalamud.Data;
+using Dalamud.Plugin.Services;
 using Lumina.Excel.GeneratedSheets;
 using GrandCompany = FFXIVClientStructs.FFXIV.Client.UI.Agent.GrandCompany;
 
@@ -8,7 +8,7 @@ namespace Deliveroo.GameData;
 
 internal sealed class GcRewardsCache
 {
-    public GcRewardsCache(DataManager dataManager)
+    public GcRewardsCache(IDataManager dataManager)
     {
         var categories = dataManager.GetExcelSheet<GCScripShopCategory>()!
             .Where(x => x.RowId > 0)
