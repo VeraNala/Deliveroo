@@ -3,5 +3,6 @@
   "Author": "Liza Carvelli",
   "Punchline": "Better Grand Company Deliveries",
   "Description": "",
-  "RepoUrl": "https://git.carvel.li/liza/Deliveroo"
+  "RepoUrl": "https://git.carvel.li/liza/Deliveroo",
+  "IconUrl": "https://git.carvel.li/liza/plugin-repo/raw/branch/master/dist/Deliveroo.png"
 }
