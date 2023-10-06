@@ -155,11 +155,37 @@ partial class DeliverooPlugin
         {
             addonSupplyReward->AtkUnitBase.FireCallbackInt(0);
             _continueAt = DateTime.Now.AddSeconds(0.58);
-            CurrentStage = Stage.FinalizeTurnIn;
+            CurrentStage = Stage.FinalizeTurnIn1;
         }
     }
 
-    private unsafe void FinalizeTurnInItem()
+    private unsafe void FinalizeTurnInItem1()
+    {
+        if (TryGetAddonByName<AddonGrandCompanySupplyList>("GrandCompanySupplyList",
+                out var addonSupplyList) && IsAddonReady(&addonSupplyList->AtkUnitBase))
+        {
+            addonSupplyList->AtkUnitBase.FireCallbackInt(2);
+            CurrentStage = Stage.FinalizeTurnIn2;
+        }
+    }
+
+    private unsafe void FinalizeTurnInItem2()
+    {
+        if (TryGetAddonByName<AddonGrandCompanySupplyList>("GrandCompanySupplyList",
+                out var addonSupplyList) && IsAddonReady(&addonSupplyList->AtkUnitBase))
+        {
+            var updateUnknown = stackalloc AtkValue[]
+            {
+                new() { Type = ValueType.Int, Int = 4 },
+                new() { Type = ValueType.Int, Int = 0 },
+                new() { Type = 0, Int = 0 }
+            };
+            addonSupplyList->AtkUnitBase.FireCallback(3, updateUnknown);
+            CurrentStage = Stage.FinalizeTurnIn3;
+        }
+    }
+
+    private unsafe void FinalizeTurnInItem3()
     {
         if (TryGetAddonByName<AddonGrandCompanySupplyList>("GrandCompanySupplyList",
                 out var addonSupplyList) && IsAddonReady(&addonSupplyList->AtkUnitBase))

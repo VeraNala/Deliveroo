@@ -234,8 +234,16 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
                     TurnInSelectedItem();
                     break;
 
-                case Stage.FinalizeTurnIn:
-                    FinalizeTurnInItem();
+                case Stage.FinalizeTurnIn1:
+                    FinalizeTurnInItem1();
+                    break;
+
+                case Stage.FinalizeTurnIn2:
+                    FinalizeTurnInItem2();
+                    break;
+
+                case Stage.FinalizeTurnIn3:
+                    FinalizeTurnInItem3();
                     break;
 
                 case Stage.CloseGcSupply:

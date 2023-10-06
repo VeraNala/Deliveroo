@@ -7,7 +7,9 @@ internal enum Stage
     SelectExpertDeliveryTab,
     SelectItemToTurnIn,
     TurnInSelected,
-    FinalizeTurnIn,
+    FinalizeTurnIn1,
+    FinalizeTurnIn2,
+    FinalizeTurnIn3,
     CloseGcSupply,
     CloseGcSupplyThenStop,
 
