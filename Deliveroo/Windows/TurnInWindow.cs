@@ -50,7 +50,8 @@ internal sealed class TurnInWindow : Window
     public decimal Multiplier { private get; set; }
     public string Error { private get; set; } = string.Empty;
 
-    private bool UseCharacterSpecificItemsToPurchase => _plugin.CharacterConfiguration is {OverrideItemsToPurchase: true };
+    private bool UseCharacterSpecificItemsToPurchase =>
+        _plugin.CharacterConfiguration is { OverrideItemsToPurchase: true };
 
     private IItemsToPurchase ItemsWrapper => UseCharacterSpecificItemsToPurchase
         ? new CharacterSpecificItemsToPurchase(_plugin.CharacterConfiguration!, _pluginInterface)
@@ -67,7 +68,8 @@ internal sealed class TurnInWindow : Window
             var rank = _plugin.GetGrandCompanyRank();
             return ItemsWrapper.GetItemsToPurchase()
                 .Where(x => x.ItemId != 0)
-                .Select(x => new { Item = x, Reward = _gcRewardsCache.GetReward(grandCompany, x.ItemId) })
+                .Select(x => new { Item = x, Reward = _gcRewardsCache.GetReward(x.ItemId) })
+                .Where(x => x.Reward.GrandCompanies.Contains(grandCompany))
                 .Where(x => x.Reward.RequiredRank <= rank)
                 .Select(x => new PurchaseItemRequest
                 {
@@ -147,16 +149,18 @@ internal sealed class TurnInWindow : Window
         var itemsWrapper = ItemsWrapper;
         ImGui.Text($"Items to buy ({itemsWrapper.Name}):");
 
-        List<(uint ItemId, string Name, uint Rank)> comboValues = new()
-            { (GcRewardItem.None.ItemId, GcRewardItem.None.Name, GcRewardItem.None.RequiredRank) };
+        List<(uint ItemId, string Name, IReadOnlyList<GrandCompany> GrandCompanies, uint Rank)> comboValues = new()
+        {
+            (GcRewardItem.None.ItemId, GcRewardItem.None.Name, new List<GrandCompany>(), GcRewardItem.None.RequiredRank)
+        };
         foreach (uint itemId in _configuration.ItemsAvailableForPurchase)
         {
-            var gcReward = _gcRewardsCache.GetReward(grandCompany, itemId);
+            var gcReward = _gcRewardsCache.GetReward(itemId);
             int itemCount = _plugin.GetItemCount(itemId);
             string itemName = gcReward.Name;
             if (itemCount > 0)
                 itemName += $" ({itemCount:N0})";
-            comboValues.Add((itemId, itemName, gcReward.RequiredRank));
+            comboValues.Add((itemId, itemName, gcReward.GrandCompanies, gcReward.RequiredRank));
         }
 
         if (itemsWrapper.GetItemsToPurchase().Count == 0)
@@ -216,10 +220,19 @@ internal sealed class TurnInWindow : Window
                 itemsWrapper.Save();
             }
 
-            if (comboValueIndex > 0 && comboValues[comboValueIndex].Rank > _plugin.GetGrandCompanyRank())
+            if (comboValueIndex > 0)
             {
-                ImGui.TextColored(ImGuiColors.DalamudRed,
-                    "This item will be skipped, your rank isn't high enough to buy it.");
+                var comboItem = comboValues[comboValueIndex];
+                if (!comboItem.GrandCompanies.Contains(grandCompany))
+                {
+                    ImGui.TextColored(ImGuiColors.DalamudRed,
+                        "This item will be skipped, as you are in the wrong Grand Company.");
+                }
+                else if (comboItem.Rank > _plugin.GetGrandCompanyRank())
+                {
+                    ImGui.TextColored(ImGuiColors.DalamudRed,
+                        "This item will be skipped, your rank isn't high enough to buy it.");
+                }
             }
 
             ImGui.Unindent(27);
@@ -232,7 +245,8 @@ internal sealed class TurnInWindow : Window
             itemsWrapper.Save();
         }
 
-        if (_configuration.ItemsAvailableForPurchase.Any(x => itemsWrapper.GetItemsToPurchase().All(y => x != y.ItemId)))
+        if (_configuration.ItemsAvailableForPurchase.Any(x =>
+                itemsWrapper.GetItemsToPurchase().All(y => x != y.ItemId)))
         {
             if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.Plus, "Add Item"))
             {
@@ -284,7 +298,8 @@ internal sealed class TurnInWindow : Window
         private readonly CharacterConfiguration _characterConfiguration;
         private readonly DalamudPluginInterface _pluginInterface;
 
-        public CharacterSpecificItemsToPurchase(CharacterConfiguration characterConfiguration, DalamudPluginInterface pluginInterface)
+        public CharacterSpecificItemsToPurchase(CharacterConfiguration characterConfiguration,
+            DalamudPluginInterface pluginInterface)
         {
             _characterConfiguration = characterConfiguration;
             _pluginInterface = pluginInterface;

@@ -18,34 +18,42 @@ internal sealed class GcRewardsCache
                         Tier: (RewardTier)x.Tier,
                         SubCategory: (RewardSubCategory)x.SubCategory));
 
-        var items = dataManager.GetExcelSheet<GCScripShopItem>()!
+        Rewards = dataManager.GetExcelSheet<GCScripShopItem>()!
             .Where(x => x.RowId > 0 && x.Item.Row > 0)
-            .ToList();
-
-        foreach (var item in items)
-        {
-            var category = categories[item.RowId];
-            Rewards[category.GrandCompany].Add(new GcRewardItem
+            .GroupBy(item =>
             {
-                ItemId = item.Item.Row,
-                Name = item.Item.Value!.Name.ToString(),
-                GrandCompany = category.GrandCompany,
-                Tier = category.Tier,
-                SubCategory = category.SubCategory,
-                RequiredRank = item.RequiredGrandCompanyRank.Row,
-                StackSize = item.Item!.Value.StackSize,
-                SealCost = item.CostGCSeals,
-            });
-        }
+                var category = categories[item.RowId];
+                return new
+                {
+                    ItemId = item.Item.Row,
+                    Name = item.Item.Value!.Name.ToString(),
+                    category.Tier,
+                    category.SubCategory,
+                    RequiredRank = item.RequiredGrandCompanyRank.Row,
+                    item.Item!.Value.StackSize,
+                    SealCost = item.CostGCSeals,
+                };
+            })
+            .Select(item => new GcRewardItem
+            {
+                ItemId = item.Key.ItemId,
+                Name = item.Key.Name,
+                Tier = item.Key.Tier,
+                SubCategory = item.Key.SubCategory,
+                RequiredRank = item.Key.RequiredRank,
+                StackSize = item.Key.StackSize,
+                SealCost = item.Key.SealCost,
+                GrandCompanies = item.Select(x => categories[x.RowId].GrandCompany)
+                    .ToList()
+                    .AsReadOnly(),
+            })
+            .ToList()
+            .AsReadOnly();
+        RewardLookup = Rewards.ToDictionary(x => x.ItemId).AsReadOnly();
     }
 
-    public Dictionary<GrandCompany, List<GcRewardItem>> Rewards { get; } = new()
-    {
-        { GrandCompany.Maelstrom, new() },
-        { GrandCompany.TwinAdder, new() },
-        { GrandCompany.ImmortalFlames, new() }
-    };
+    public IReadOnlyList<GcRewardItem> Rewards { get; }
+    public IReadOnlyDictionary<uint, GcRewardItem> RewardLookup { get; }
 
-    public GcRewardItem GetReward(GrandCompany grandCompany, uint itemId)
-        => Rewards[grandCompany].Single(x => x.ItemId == itemId);
+    public GcRewardItem GetReward(uint itemId) => RewardLookup[itemId];
 }

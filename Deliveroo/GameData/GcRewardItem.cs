@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 
 namespace Deliveroo.GameData;
@@ -9,7 +10,7 @@ internal sealed class GcRewardItem : IEquatable<GcRewardItem>
     {
         ItemId = 0,
         Name = "---",
-        GrandCompany = GrandCompany.None,
+        GrandCompanies = new List<GrandCompany>().AsReadOnly(),
         Tier = RewardTier.First,
         SubCategory = RewardSubCategory.Unknown,
         RequiredRank = 0,
@@ -19,14 +20,14 @@ internal sealed class GcRewardItem : IEquatable<GcRewardItem>
 
     public required uint ItemId { get; init; }
     public required string Name { get; init; }
-    public required GrandCompany GrandCompany { get; init; }
+    public required IReadOnlyList<GrandCompany> GrandCompanies { get; init; }
     public required RewardTier Tier { get; init; }
     public required RewardSubCategory SubCategory { get; init; }
     public required uint RequiredRank { get; init; }
     public required uint StackSize { get; init; }
     public required uint SealCost { get; init; }
 
-    public bool IsValid() => ItemId > 0 && GrandCompany != GrandCompany.None;
+    public bool IsValid() => ItemId > 0 && GrandCompanies.Count > 0;
 
     public bool Equals(GcRewardItem? other)
     {

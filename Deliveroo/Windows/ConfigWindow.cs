@@ -23,8 +23,8 @@ internal sealed class ConfigWindow : Window
     private readonly IClientState _clientState;
     private readonly IPluginLog _pluginLog;
 
-    private readonly Dictionary<uint, GcRewardItem> _itemLookup;
-    private uint _dragDropSource = 0;
+    private readonly IReadOnlyDictionary<uint, GcRewardItem> _itemLookup;
+    private uint _dragDropSource;
 
     public ConfigWindow(DalamudPluginInterface pluginInterface, DeliverooPlugin plugin, Configuration configuration,
         GcRewardsCache gcRewardsCache, IClientState clientState, IPluginLog pluginLog)
@@ -37,10 +37,7 @@ internal sealed class ConfigWindow : Window
         _clientState = clientState;
         _pluginLog = pluginLog;
 
-        _itemLookup = _gcRewardsCache.Rewards.Values
-            .SelectMany(x => x)
-            .Distinct()
-            .ToDictionary(x => x.ItemId, x => x);
+        _itemLookup = _gcRewardsCache.RewardLookup;
 
         Size = new Vector2(420, 300);
         SizeCondition = ImGuiCond.Appearing;
@@ -136,33 +133,22 @@ internal sealed class ConfigWindow : Window
                 Save();
             }
 
-            if (_plugin.GetGrandCompany() != GrandCompany.None)
-            {
-                List<(uint ItemId, string Name)> comboValues = _gcRewardsCache.Rewards[_plugin.GetGrandCompany()]
-                    .Where(x => x.SubCategory == RewardSubCategory.Materials ||
-                                x.SubCategory == RewardSubCategory.Materiel)
-                    .Where(x => x.StackSize > 1)
-                    .Where(x => !_configuration.ItemsAvailableForPurchase.Contains(x.ItemId))
-                    .Select(x => (x.ItemId, x.Name))
-                    .OrderBy(x => x.Name)
-                    .ThenBy(x => x.GetHashCode())
-                    .ToList();
-                comboValues.Insert(0, (0, ""));
+            List<(uint ItemId, string Name)> comboValues = _gcRewardsCache.Rewards
+                .Where(x => x.SubCategory is RewardSubCategory.Materials or RewardSubCategory.Materiel)
+                .Where(x => x.StackSize > 1)
+                .Where(x => !_configuration.ItemsAvailableForPurchase.Contains(x.ItemId))
+                .Select(x => (x.ItemId, x.Name))
+                .OrderBy(x => x.Name)
+                .ThenBy(x => x.GetHashCode())
+                .ToList();
+            comboValues.Insert(0, (0, ""));
 
-                int currentItem = 0;
-                if (ImGui.Combo("Add Item", ref currentItem, comboValues.Select(x => x.Name).ToArray(),
-                        comboValues.Count))
-                {
-                    _configuration.ItemsAvailableForPurchase.Add(comboValues[currentItem].ItemId);
-                    Save();
-                }
-            }
-            else
+            int currentItem = 0;
+            if (ImGui.Combo("Add Item", ref currentItem, comboValues.Select(x => x.Name).ToArray(), comboValues.Count)
+                && comboValues[currentItem].ItemId != GcRewardItem.None.ItemId)
             {
-                ImGui.BeginDisabled();
-                int currentItem = 0;
-                ImGui.Combo("Add Item", ref currentItem, new[] { "(Not part of a GC)" }, 1);
-                ImGui.EndDisabled();
+                _configuration.ItemsAvailableForPurchase.Add(comboValues[currentItem].ItemId);
+                Save();
             }
 
             ImGui.EndTabItem();
@@ -185,7 +171,6 @@ internal sealed class ConfigWindow : Window
                 var charConfiguration = _plugin.CharacterConfiguration;
                 if (charConfiguration != null)
                 {
-
                     bool disableForCharacter = charConfiguration.DisableForCharacter;
                     if (ImGui.Checkbox("Disable plugin for this character", ref disableForCharacter))
                     {
@@ -203,7 +188,8 @@ internal sealed class ConfigWindow : Window
                     }
 
                     if (charConfiguration.ItemsToPurchase.Count > 1 ||
-                        (charConfiguration.ItemsToPurchase.Count == 1 && charConfiguration.ItemsToPurchase[0].ItemId != GcRewardItem.None.ItemId))
+                        (charConfiguration.ItemsToPurchase.Count == 1 &&
+                         charConfiguration.ItemsToPurchase[0].ItemId != GcRewardItem.None.ItemId))
                     {
                         ImGui.SameLine();
                         if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.Trash, "Clear"))
@@ -219,8 +205,10 @@ internal sealed class ConfigWindow : Window
                         charConfiguration.UseHideArmouryChestItemsFilter = useHideArmouryChestItemsFilter;
                         charConfiguration.Save(_pluginInterface);
                     }
+
                     if (ImGui.IsItemHovered())
-                        ImGui.SetTooltip("The default filter for all characters is 'Hide Gear Set Items', but you may want to override this to hide all Armoury Chest items (regardless of whether they're part of a gear set) e.g. for your main character.");
+                        ImGui.SetTooltip(
+                            "The default filter for all characters is 'Hide Gear Set Items', but you may want to override this to hide all Armoury Chest items (regardless of whether they're part of a gear set) e.g. for your main character.");
 
                     ImGui.EndDisabled();
                     ImGui.Spacing();
