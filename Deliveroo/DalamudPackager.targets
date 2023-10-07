@@ -16,6 +16,6 @@
                 AssemblyName="$(AssemblyName)"
                 MakeZip="true"
                 VersionComponents="2"
-                Exclude="Deliveroo.deps.json;Deliveroo.pdb"/>
+                Exclude="Deliveroo.deps.json"/>
     </Target>
 </Project>

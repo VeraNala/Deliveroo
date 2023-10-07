@@ -92,8 +92,6 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
             _pluginInterface.SavePluginConfig(_configuration);
     }
 
-    public string Name => "Deliveroo";
-
     internal CharacterConfiguration? CharacterConfiguration { get; set; }
 
 
