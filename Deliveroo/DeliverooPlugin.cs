@@ -102,7 +102,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         {
             if (_currentStageInternal != value)
             {
-                _pluginLog.Information($"Changing stage from {_currentStageInternal} to {value}");
+                _pluginLog.Verbose($"Changing stage from {_currentStageInternal} to {value}");
                 _currentStageInternal = value;
             }
         }
