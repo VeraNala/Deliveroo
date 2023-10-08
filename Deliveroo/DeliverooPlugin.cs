@@ -35,7 +35,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
     // ReSharper disable once PrivateFieldCanBeConvertedToLocalVariable
     private readonly Configuration _configuration;
 
-    private readonly YesAlreadyIpc _yesAlreadyIpc;
+    private readonly ExternalPluginHandler _externalPluginHandler;
 
     // ReSharper disable once PrivateFieldCanBeConvertedToLocalVariable
     private readonly GcRewardsCache _gcRewardsCache;
@@ -47,7 +47,6 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
     private Stage _currentStageInternal = Stage.Stopped;
     private DateTime _continueAt = DateTime.MinValue;
     private List<PurchaseItemRequest> _itemsToPurchaseNow = new();
-    private (bool Saved, bool? PreviousState) _yesAlreadyState = (false, null);
 
     public DeliverooPlugin(DalamudPluginInterface pluginInterface, IChatGui chatGui, IGameGui gameGui,
         IFramework framework, IClientState clientState, IObjectTable objectTable, ITargetManager targetManager,
@@ -64,8 +63,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         _commandManager = commandManager;
         _pluginLog = pluginLog;
 
-        var dalamudReflector = new DalamudReflector(_pluginInterface, _framework, _pluginLog);
-        _yesAlreadyIpc = new YesAlreadyIpc(dalamudReflector);
+        _externalPluginHandler = new ExternalPluginHandler(_pluginInterface, _framework, _pluginLog);
         _configuration = (Configuration?)_pluginInterface.GetPluginConfig() ?? new Configuration();
         _gcRewardsCache = new GcRewardsCache(dataManager);
         _configWindow = new ConfigWindow(_pluginInterface, this, _configuration, _gcRewardsCache, _clientState, _pluginLog);
@@ -161,7 +159,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
             _turnInWindow.State = false;
             if (CurrentStage != Stage.Stopped)
             {
-                RestoreYesAlready();
+                _externalPluginHandler.Restore();
                 CurrentStage = Stage.Stopped;
             }
         }
@@ -174,7 +172,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
             {
                 if (CurrentStage != Stage.Stopped)
                 {
-                    RestoreYesAlready();
+                    _externalPluginHandler.Restore();
                     CurrentStage = Stage.Stopped;
                 }
 
@@ -207,8 +205,8 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
                     CurrentStage = Stage.SelectRewardTier;
             }
 
-            if (CurrentStage != Stage.Stopped && CurrentStage != Stage.RequestStop && !_yesAlreadyState.Saved)
-                SaveYesAlready();
+            if (CurrentStage != Stage.Stopped && CurrentStage != Stage.RequestStop && !_externalPluginHandler.Saved)
+                _externalPluginHandler.Save();
 
             switch (CurrentStage)
             {
@@ -277,7 +275,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
                     break;
 
                 case Stage.RequestStop:
-                    RestoreYesAlready();
+                    _externalPluginHandler.Restore();
                     CurrentStage = Stage.Stopped;
 
                     break;
@@ -301,32 +299,8 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         _pluginInterface.UiBuilder.Draw -= _windowSystem.Draw;
         _framework.Update -= FrameworkUpdate;
 
-        RestoreYesAlready();
+        _externalPluginHandler.Restore();
     }
 
     private void ProcessCommand(string command, string arguments) => _configWindow.Toggle();
-
-    private void SaveYesAlready()
-    {
-        if (_yesAlreadyState.Saved)
-        {
-            _pluginLog.Information("Not overwriting yesalready state");
-            return;
-        }
-
-        _yesAlreadyState = (true, _yesAlreadyIpc.DisableIfNecessary());
-        _pluginLog.Information($"Previous yesalready state: {_yesAlreadyState.PreviousState}");
-    }
-
-    private void RestoreYesAlready()
-    {
-        if (_yesAlreadyState.Saved)
-        {
-            _pluginLog.Information($"Restoring previous yesalready state: {_yesAlreadyState.PreviousState}");
-            if (_yesAlreadyState.PreviousState == true)
-                _yesAlreadyIpc.Enable();
-        }
-
-        _yesAlreadyState = (false, null);
-    }
 }
