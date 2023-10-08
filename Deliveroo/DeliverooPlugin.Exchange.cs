@@ -165,26 +165,6 @@ partial class DeliverooPlugin
         return false;
     }
 
-    private void ConfirmReward()
-    {
-        PurchaseItemRequest? item = GetNextItemToPurchase();
-        if (item == null)
-        {
-            CurrentStage = Stage.CloseGcExchange;
-            return;
-        }
-
-        if (SelectSelectYesno(0, s => s.StartsWith("Exchange ")))
-        {
-            var nextItem = GetNextItemToPurchase(item);
-            if (nextItem != null && GetCurrentSealCount() >= _configuration.ReservedSealCount + nextItem.SealCost)
-                CurrentStage = Stage.SelectRewardTier;
-            else
-                CurrentStage = Stage.CloseGcExchange;
-            _continueAt = DateTime.Now.AddSeconds(0.5);
-        }
-    }
-
     private unsafe void CloseGcExchange()
     {
         if (TryGetAddonByName<AtkUnitBase>("GrandCompanyExchange", out var addonExchange) &&

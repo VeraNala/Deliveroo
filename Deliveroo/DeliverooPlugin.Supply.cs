@@ -20,12 +20,6 @@ partial class DeliverooPlugin
         CurrentStage = Stage.OpenGcSupply;
     }
 
-    private void OpenGcSupply()
-    {
-        if (SelectSelectString(0))
-            CurrentStage = Stage.SelectExpertDeliveryTab;
-    }
-
     private unsafe void SelectExpertDeliveryTab()
     {
         var agentInterface = AgentModule.Instance()->GetAgentByInternalId(AgentId.GrandCompanySupply);
@@ -147,9 +141,6 @@ partial class DeliverooPlugin
 
     private unsafe void TurnInSelectedItem()
     {
-        if (SelectSelectYesno(0, s => s == "Do you really want to trade a high-quality item?"))
-            return;
-
         if (TryGetAddonByName<AddonGrandCompanySupplyReward>("GrandCompanySupplyReward",
                 out var addonSupplyReward) && IsAddonReady(&addonSupplyReward->AtkUnitBase))
         {
@@ -198,47 +189,6 @@ partial class DeliverooPlugin
             };
             addonSupplyList->AtkUnitBase.FireCallback(3, updateFilter);
             CurrentStage = Stage.SelectItemToTurnIn;
-        }
-    }
-
-    private void CloseGcSupply()
-    {
-        if (SelectSelectString(3))
-        {
-            if (GetNextItemToPurchase() == null)
-            {
-                _turnInWindow.State = false;
-                CurrentStage = Stage.RequestStop;
-            }
-            else
-            {
-                // you can occasionally get a 'not enough seals' warning lol
-                _continueAt = DateTime.Now.AddSeconds(1);
-                CurrentStage = Stage.TargetQuartermaster;
-            }
-        }
-    }
-
-    private void CloseGcSupplyThenStop()
-    {
-        if (SelectSelectString(3))
-        {
-            if (GetNextItemToPurchase() == null)
-            {
-                _turnInWindow.State = false;
-                CurrentStage = Stage.RequestStop;
-            }
-            else if (GetCurrentSealCount() <=
-                     _configuration.ReservedSealCount + GetNextItemToPurchase()!.SealCost)
-            {
-                _turnInWindow.State = false;
-                CurrentStage = Stage.RequestStop;
-            }
-            else
-            {
-                _continueAt = DateTime.Now.AddSeconds(1);
-                CurrentStage = Stage.TargetQuartermaster;
-            }
         }
     }
 

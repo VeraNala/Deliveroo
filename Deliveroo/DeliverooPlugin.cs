@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Objects;
 using Dalamud.Game.ClientState.Objects.Types;
@@ -31,10 +32,12 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
     private readonly ICondition _condition;
     private readonly ICommandManager _commandManager;
     private readonly IPluginLog _pluginLog;
+    private readonly IAddonLifecycle _addonLifecycle;
 
     // ReSharper disable once PrivateFieldCanBeConvertedToLocalVariable
     private readonly Configuration _configuration;
 
+    private readonly GameStrings _gameStrings;
     private readonly ExternalPluginHandler _externalPluginHandler;
 
     // ReSharper disable once PrivateFieldCanBeConvertedToLocalVariable
@@ -50,7 +53,8 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
 
     public DeliverooPlugin(DalamudPluginInterface pluginInterface, IChatGui chatGui, IGameGui gameGui,
         IFramework framework, IClientState clientState, IObjectTable objectTable, ITargetManager targetManager,
-        IDataManager dataManager, ICondition condition, ICommandManager commandManager, IPluginLog pluginLog)
+        IDataManager dataManager, ICondition condition, ICommandManager commandManager, IPluginLog pluginLog,
+        IAddonLifecycle addonLifecycle)
     {
         _pluginInterface = pluginInterface;
         _chatGui = chatGui;
@@ -62,7 +66,9 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         _condition = condition;
         _commandManager = commandManager;
         _pluginLog = pluginLog;
+        _addonLifecycle = addonLifecycle;
 
+        _gameStrings = new GameStrings(dataManager, _pluginLog);
         _externalPluginHandler = new ExternalPluginHandler(_pluginInterface, _framework, _pluginLog);
         _configuration = (Configuration?)_pluginInterface.GetPluginConfig() ?? new Configuration();
         _gcRewardsCache = new GcRewardsCache(dataManager);
@@ -88,6 +94,9 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
 
         if (_configuration.AddVentureIfNoItemToPurchaseSelected())
             _pluginInterface.SavePluginConfig(_configuration);
+
+        _addonLifecycle.RegisterListener(AddonEvent.PostSetup, "SelectString", SelectStringPostSetup);
+        _addonLifecycle.RegisterListener(AddonEvent.PostSetup, "SelectYesno", SelectYesNoPostSetup);
     }
 
     internal CharacterConfiguration? CharacterConfiguration { get; set; }
@@ -215,7 +224,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
                     break;
 
                 case Stage.OpenGcSupply:
-                    OpenGcSupply();
+                    // see SelectStringPostSetup
                     break;
 
                 case Stage.SelectExpertDeliveryTab:
@@ -243,11 +252,11 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
                     break;
 
                 case Stage.CloseGcSupply:
-                    CloseGcSupply();
+                    // see SelectStringPostSetup
                     break;
 
                 case Stage.CloseGcSupplyThenStop:
-                    CloseGcSupplyThenStop();
+                    // see SelectStringPostSetup
                     break;
 
                 case Stage.TargetQuartermaster:
@@ -267,7 +276,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
                     break;
 
                 case Stage.ConfirmReward:
-                    ConfirmReward();
+                    // see SelectYesNoPostSetup
                     break;
 
                 case Stage.CloseGcExchange:
@@ -292,6 +301,9 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
 
     public void Dispose()
     {
+        _addonLifecycle.UnregisterListener(AddonEvent.PostSetup, "SelectYesno", SelectYesNoPostSetup);
+        _addonLifecycle.UnregisterListener(AddonEvent.PostSetup, "SelectString", SelectStringPostSetup);
+
         _commandManager.RemoveHandler("/deliveroo");
         _clientState.Logout -= Logout;
         _clientState.Login -= Login;

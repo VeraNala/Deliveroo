@@ -9,7 +9,6 @@ using Deliveroo.GameData;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
-using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Common.Math;
 using FFXIVClientStructs.FFXIV.Component.GUI;
@@ -52,16 +51,24 @@ partial class DeliverooPlugin
 
     private float GetDistanceToNpc(int npcId, out GameObject? o)
     {
-        foreach (var obj in _objectTable)
+        try
         {
-            if (obj.ObjectKind == ObjectKind.EventNpc && obj is Character c)
+            foreach (var obj in _objectTable)
             {
-                if (GetNpcId(obj) == npcId)
+                // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
+                if (obj != null && obj.ObjectKind == ObjectKind.EventNpc && obj is Character c)
                 {
-                    o = obj;
-                    return Vector3.Distance(_clientState.LocalPlayer!.Position, c.Position);
+                    if (GetNpcId(obj) == npcId)
+                    {
+                        o = obj;
+                        return Vector3.Distance(_clientState.LocalPlayer!.Position, c.Position);
+                    }
                 }
             }
+        }
+        catch (Exception)
+        {
+            // ignore
         }
 
         o = null;
@@ -195,33 +202,5 @@ partial class DeliverooPlugin
     private unsafe bool IsAddonReady(AtkUnitBase* addon)
     {
         return addon->IsVisible && addon->UldManager.LoadedState == AtkLoadState.Loaded;
-    }
-
-    private unsafe bool SelectSelectString(int choice)
-    {
-        if (TryGetAddonByName<AddonSelectString>("SelectString", out var addonSelectString) &&
-            IsAddonReady(&addonSelectString->AtkUnitBase))
-        {
-            addonSelectString->AtkUnitBase.FireCallbackInt(choice);
-            return true;
-        }
-
-        return false;
-    }
-
-    private unsafe bool SelectSelectYesno(int choice, Predicate<string> predicate)
-    {
-        if (TryGetAddonByName<AddonSelectYesno>("SelectYesno", out var addonSelectYesno) &&
-            IsAddonReady(&addonSelectYesno->AtkUnitBase) &&
-            predicate(MemoryHelper.ReadSeString(&addonSelectYesno->PromptText->NodeText).ToString()))
-        {
-            _pluginLog.Information(
-                $"Selecting choice={choice} for '{MemoryHelper.ReadSeString(&addonSelectYesno->PromptText->NodeText)}'");
-
-            addonSelectYesno->AtkUnitBase.FireCallbackInt(choice);
-            return true;
-        }
-
-        return false;
     }
 }
