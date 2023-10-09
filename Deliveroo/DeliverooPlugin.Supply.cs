@@ -50,6 +50,7 @@ partial class DeliverooPlugin
                 new() { Type = 0, Int = 0 }
             };
             addon->FireCallback(3, selectExpertDeliveryTab);
+            _lastTurnInListLength = int.MaxValue;
             CurrentStage = Stage.SelectItemToTurnIn;
         }
     }
@@ -101,6 +102,19 @@ partial class DeliverooPlugin
                 addon->FireCallbackInt(-1);
                 return;
             }
+
+            // Fallback: Two successive calls to SelectItemToTurnIn should *not* have lists of the same length, or
+            // something is wrong.
+            if (items.Count >= _lastTurnInListLength)
+            {
+                _pluginLog.Warning("Closing GC supply window, possible invalid loop detected");
+
+                CurrentStage = Stage.CloseGcSupply;
+                addon->FireCallbackInt(-1);
+                return;
+            }
+
+            _lastTurnInListLength = items.Count;
 
             // TODO The way the items are handled above, we don't actually know if items[0] is the first visible item
             // in the list, it is "only" the highest-value item to turn in.

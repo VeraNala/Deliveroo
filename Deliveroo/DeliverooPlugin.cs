@@ -49,6 +49,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
 
     private Stage _currentStageInternal = Stage.Stopped;
     private DateTime _continueAt = DateTime.MinValue;
+    private int _lastTurnInListLength = int.MaxValue;
     private List<PurchaseItemRequest> _itemsToPurchaseNow = new();
 
     public DeliverooPlugin(DalamudPluginInterface pluginInterface, IChatGui chatGui, IGameGui gameGui,
