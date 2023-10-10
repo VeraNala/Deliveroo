@@ -18,7 +18,7 @@ internal sealed class ExternalPluginHandler
 
         var dalamudReflector = new DalamudReflector(pluginInterface, framework, pluginLog);
         _yesAlreadyIpc = new YesAlreadyIpc(dalamudReflector);
-        _pandoraIpc = new PandoraIpc(dalamudReflector);
+        _pandoraIpc = new PandoraIpc(pluginInterface, pluginLog);
     }
 
     public bool Saved { get; private set; }

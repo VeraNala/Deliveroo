@@ -1,58 +1,52 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
+﻿using Dalamud.Plugin;
+using Dalamud.Plugin.Ipc;
+using Dalamud.Plugin.Ipc.Exceptions;
+using Dalamud.Plugin.Services;
 
 namespace Deliveroo.External;
 
 internal sealed class PandoraIpc
 {
-    private const string GcTabFeature = "GCVendorDefault";
+    private const string GcTabFeature = "Default Grand Company Shop Menu";
 
-    private readonly DalamudReflector _dalamudReflector;
+    private readonly IPluginLog _pluginLog;
+    private readonly ICallGateSubscriber<string, bool?> _getEnabled;
+    private readonly ICallGateSubscriber<string, bool, object?> _setEnabled;
 
-    public PandoraIpc(DalamudReflector dalamudReflector)
+    public PandoraIpc(DalamudPluginInterface pluginInterface, IPluginLog pluginLog)
     {
-        _dalamudReflector = dalamudReflector;
-    }
-
-    private IEnumerable<object>? GetFeatures()
-    {
-        if (_dalamudReflector.TryGetDalamudPlugin("Pandora's Box", out var plugin))
-        {
-            return ((IEnumerable)plugin!.GetType().GetProperty("Features")!.GetValue(plugin)!).Cast<object>();
-        }
-
-        return null;
-    }
-
-    private object? GetFeature(string name)
-    {
-        IEnumerable<object> features = GetFeatures() ?? Array.Empty<object>();
-        return features.FirstOrDefault(x => x.GetType().Name == name);
+        _pluginLog = pluginLog;
+        _getEnabled = pluginInterface.GetIpcSubscriber<string, bool?>("PandorasBox.GetFeatureEnabled");
+        _setEnabled = pluginInterface.GetIpcSubscriber<string, bool, object?>("PandorasBox.SetFeatureEnabled");
     }
 
     public bool? DisableIfNecessary()
     {
-        object? feature = GetFeature(GcTabFeature);
-        if (feature == null)
-            return null;
-
-        if ((bool)feature.GetType().GetProperty("Enabled")!.GetValue(feature)!)
+        try
         {
-            feature.GetType().GetMethod("Disable")!.Invoke(feature, Array.Empty<object>());
-            return true;
-        }
+            bool? enabled = _getEnabled.InvokeFunc(GcTabFeature);
+            _pluginLog.Information($"Pandora's {GcTabFeature} is {enabled?.ToString() ?? "null"}");
+            if (enabled == true)
+                _setEnabled.InvokeAction(GcTabFeature, false);
 
-        return false;
+            return enabled;
+        }
+        catch (IpcNotReadyError e)
+        {
+            _pluginLog.Information(e, "Unable to read pandora state");
+            return null;
+        }
     }
 
     public void Enable()
     {
-        object? feature = GetFeature(GcTabFeature);
-        if (feature == null)
-            return;
-
-        feature.GetType().GetMethod("Enable")!.Invoke(feature, Array.Empty<object>());
+        try
+        {
+            _setEnabled.InvokeAction(GcTabFeature, true);
+        }
+        catch (IpcNotReadyError e)
+        {
+            _pluginLog.Error(e, "Unable to restore pandora state");
+        }
     }
 }
