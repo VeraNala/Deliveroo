@@ -60,6 +60,7 @@ partial class DeliverooPlugin
 
     private void OpenGcSupplyFollowUp()
     {
+        ResetTurnInErrorHandling();
         CurrentStage = Stage.SelectExpertDeliveryTab;
     }
 

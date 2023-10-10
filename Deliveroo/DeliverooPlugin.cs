@@ -49,7 +49,8 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
 
     private Stage _currentStageInternal = Stage.Stopped;
     private DateTime _continueAt = DateTime.MinValue;
-    private int _lastTurnInListLength = int.MaxValue;
+    private int _lastTurnInListSize = int.MaxValue;
+    private uint _turnInErrors = 0;
     private List<PurchaseItemRequest> _itemsToPurchaseNow = new();
 
     public DeliverooPlugin(DalamudPluginInterface pluginInterface, IChatGui chatGui, IGameGui gameGui,
@@ -240,16 +241,8 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
                     TurnInSelectedItem();
                     break;
 
-                case Stage.FinalizeTurnIn1:
-                    FinalizeTurnInItem1();
-                    break;
-
-                case Stage.FinalizeTurnIn2:
-                    FinalizeTurnInItem2();
-                    break;
-
-                case Stage.FinalizeTurnIn3:
-                    FinalizeTurnInItem3();
+                case Stage.FinalizeTurnIn:
+                    FinalizeTurnInItem();
                     break;
 
                 case Stage.CloseGcSupply:

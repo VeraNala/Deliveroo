@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Dalamud.Game.ClientState.Objects.Types;
+using Dalamud.Memory;
 using Deliveroo.GameData;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
@@ -38,6 +39,7 @@ partial class DeliverooPlugin
             if (addonGc->SelectedTab == 2)
             {
                 _pluginLog.Information("Tab already selected, probably due to haseltweaks");
+                ResetTurnInErrorHandling();
                 CurrentStage = Stage.SelectItemToTurnIn;
                 return;
             }
@@ -50,9 +52,16 @@ partial class DeliverooPlugin
                 new() { Type = 0, Int = 0 }
             };
             addon->FireCallback(3, selectExpertDeliveryTab);
-            _lastTurnInListLength = int.MaxValue;
+            ResetTurnInErrorHandling();
             CurrentStage = Stage.SelectItemToTurnIn;
         }
+    }
+
+    private void ResetTurnInErrorHandling(int listSize = int.MaxValue)
+    {
+        _pluginLog.Verbose("Resetting error handling state");
+        _lastTurnInListSize = listSize;
+        _turnInErrors = 0;
     }
 
     private unsafe void SelectItemToTurnIn()
@@ -86,12 +95,34 @@ partial class DeliverooPlugin
                 return;
             }
 
-            if (addonGc->ListEmptyTextNode->AtkResNode.IsVisible)
+            int currentListSize = addonGc->ExpertDeliveryList->ListLength;
+            if (addonGc->ListEmptyTextNode->AtkResNode.IsVisible || currentListSize == 0)
             {
+                _pluginLog.Information($"No items to turn in {addonGc->ListEmptyTextNode->AtkResNode.IsVisible}, {currentListSize})");
                 CurrentStage = Stage.CloseGcSupplyThenStop;
                 addon->FireCallbackInt(-1);
                 return;
             }
+
+            // Fallback: Two successive calls to SelectItemToTurnIn should *not* have lists of the same length, or
+            // something is wrong.
+            if (_turnInErrors > 10)
+            {
+                _turnInWindow.Error = "Unable to refresh item list";
+                return;
+            }
+
+            if (currentListSize >= _lastTurnInListSize)
+            {
+                _turnInErrors++;
+                _pluginLog.Information($"Trying to refresh expert delivery list manually ({_turnInErrors}, old list size = {_lastTurnInListSize}, new list size = {currentListSize})...");
+                addon->FireCallbackInt(2);
+
+                _continueAt = DateTime.Now.AddSeconds(0.1);
+                return;
+            }
+
+            ResetTurnInErrorHandling(currentListSize);
 
             var agent = (AgentGrandCompanySupply*)agentInterface;
             List<TurnInItem> items = BuildTurnInList(agent);
@@ -102,19 +133,6 @@ partial class DeliverooPlugin
                 addon->FireCallbackInt(-1);
                 return;
             }
-
-            // Fallback: Two successive calls to SelectItemToTurnIn should *not* have lists of the same length, or
-            // something is wrong.
-            if (items.Count >= _lastTurnInListLength)
-            {
-                _pluginLog.Warning("Closing GC supply window, possible invalid loop detected");
-
-                CurrentStage = Stage.CloseGcSupply;
-                addon->FireCallbackInt(-1);
-                return;
-            }
-
-            _lastTurnInListLength = items.Count;
 
             // TODO The way the items are handled above, we don't actually know if items[0] is the first visible item
             // in the list, it is "only" the highest-value item to turn in.
@@ -158,39 +176,15 @@ partial class DeliverooPlugin
         if (TryGetAddonByName<AddonGrandCompanySupplyReward>("GrandCompanySupplyReward",
                 out var addonSupplyReward) && IsAddonReady(&addonSupplyReward->AtkUnitBase))
         {
+            _pluginLog.Information($"Turning in '{ReadAtkString(addonSupplyReward->AtkUnitBase.AtkValues[4])}'");
+
             addonSupplyReward->AtkUnitBase.FireCallbackInt(0);
             _continueAt = DateTime.Now.AddSeconds(0.58);
-            CurrentStage = Stage.FinalizeTurnIn1;
+            CurrentStage = Stage.FinalizeTurnIn;
         }
     }
 
-    private unsafe void FinalizeTurnInItem1()
-    {
-        if (TryGetAddonByName<AddonGrandCompanySupplyList>("GrandCompanySupplyList",
-                out var addonSupplyList) && IsAddonReady(&addonSupplyList->AtkUnitBase))
-        {
-            addonSupplyList->AtkUnitBase.FireCallbackInt(2);
-            CurrentStage = Stage.FinalizeTurnIn2;
-        }
-    }
-
-    private unsafe void FinalizeTurnInItem2()
-    {
-        if (TryGetAddonByName<AddonGrandCompanySupplyList>("GrandCompanySupplyList",
-                out var addonSupplyList) && IsAddonReady(&addonSupplyList->AtkUnitBase))
-        {
-            var updateUnknown = stackalloc AtkValue[]
-            {
-                new() { Type = ValueType.Int, Int = 4 },
-                new() { Type = ValueType.Int, Int = 0 },
-                new() { Type = 0, Int = 0 }
-            };
-            addonSupplyList->AtkUnitBase.FireCallback(3, updateUnknown);
-            CurrentStage = Stage.FinalizeTurnIn3;
-        }
-    }
-
-    private unsafe void FinalizeTurnInItem3()
+    private unsafe void FinalizeTurnInItem()
     {
         if (TryGetAddonByName<AddonGrandCompanySupplyList>("GrandCompanySupplyList",
                 out var addonSupplyList) && IsAddonReady(&addonSupplyList->AtkUnitBase))

@@ -166,13 +166,16 @@ partial class DeliverooPlugin
             .ToList();
     }
 
+    private const int UnitListCount = 18;
     private unsafe AtkUnitBase* GetAddonById(uint id)
     {
         var unitManagers = &AtkStage.GetSingleton()->RaptureAtkUnitManager->AtkUnitManager.DepthLayerOneList;
-        for (var i = 0; i < 18; i++)
+        for (var i = 0; i < UnitListCount; i++)
         {
-            foreach (AtkUnitBase* unitBase in unitManagers[i].EntriesSpan)
+            var unitManager = &unitManagers[i];
+            foreach (var j in Enumerable.Range(0, Math.Min(unitManager->Count, unitManager->EntriesSpan.Length)))
             {
+                var unitBase = unitManager->EntriesSpan[j].Value;
                 if (unitBase != null && unitBase->ID == id)
                 {
                     return unitBase;
@@ -202,5 +205,12 @@ partial class DeliverooPlugin
     private unsafe bool IsAddonReady(AtkUnitBase* addon)
     {
         return addon->IsVisible && addon->UldManager.LoadedState == AtkLoadState.Loaded;
+    }
+
+    private unsafe string? ReadAtkString(AtkValue atkValue)
+    {
+        if (atkValue.String != null)
+            return MemoryHelper.ReadSeStringNullTerminated(new nint(atkValue.String)).ToString();
+        return null;
     }
 }
