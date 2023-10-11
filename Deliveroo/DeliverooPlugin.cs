@@ -309,5 +309,22 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         _externalPluginHandler.Restore();
     }
 
-    private void ProcessCommand(string command, string arguments) => _configWindow.Toggle();
+    private void ProcessCommand(string command, string arguments)
+    {
+        switch (arguments)
+        {
+            case "e" or "enable":
+                if (_turnInWindow.IsOpen)
+                    _turnInWindow.State = true;
+                break;
+
+            case "d" or "disable":
+                _turnInWindow.State = false;
+                break;
+
+            default:
+                _configWindow.Toggle();
+                break;
+        }
+    }
 }
