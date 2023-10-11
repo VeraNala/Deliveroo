@@ -2,6 +2,7 @@
 using Dalamud.Game.ClientState.Objects.Types;
 using Deliveroo.GameData;
 using FFXIVClientStructs.FFXIV.Component.GUI;
+using LLib.GameUI;
 using ValueType = FFXIVClientStructs.FFXIV.Component.GUI.ValueType;
 
 namespace Deliveroo;
@@ -47,8 +48,8 @@ partial class DeliverooPlugin
             return;
         }
 
-        if (TryGetAddonByName<AtkUnitBase>("GrandCompanyExchange", out var addonExchange) &&
-            IsAddonReady(addonExchange))
+        if (_gameGui.TryGetAddonByName<AtkUnitBase>("GrandCompanyExchange", out var addonExchange) &&
+            LAddon.IsAddonReady(addonExchange))
         {
             _pluginLog.Information($"Selecting tier 1, {(int)item.Tier - 1}");
             var selectRank = stackalloc AtkValue[]
@@ -78,8 +79,8 @@ partial class DeliverooPlugin
             return;
         }
 
-        if (TryGetAddonByName<AtkUnitBase>("GrandCompanyExchange", out var addonExchange) &&
-            IsAddonReady(addonExchange))
+        if (_gameGui.TryGetAddonByName<AtkUnitBase>("GrandCompanyExchange", out var addonExchange) &&
+            LAddon.IsAddonReady(addonExchange))
         {
             _pluginLog.Information($"Selecting subcategory 2, {(int)item.SubCategory}");
             var selectType = stackalloc AtkValue[]
@@ -102,8 +103,8 @@ partial class DeliverooPlugin
 
     private unsafe void SelectReward()
     {
-        if (TryGetAddonByName<AtkUnitBase>("GrandCompanyExchange", out var addonExchange) &&
-            IsAddonReady(addonExchange))
+        if (_gameGui.TryGetAddonByName<AtkUnitBase>("GrandCompanyExchange", out var addonExchange) &&
+            LAddon.IsAddonReady(addonExchange))
         {
             if (SelectRewardItem(addonExchange))
             {
@@ -167,8 +168,8 @@ partial class DeliverooPlugin
 
     private unsafe void CloseGcExchange()
     {
-        if (TryGetAddonByName<AtkUnitBase>("GrandCompanyExchange", out var addonExchange) &&
-            IsAddonReady(addonExchange))
+        if (_gameGui.TryGetAddonByName<AtkUnitBase>("GrandCompanyExchange", out var addonExchange) &&
+            LAddon.IsAddonReady(addonExchange))
         {
             addonExchange->FireCallbackInt(-1);
             CurrentStage = Stage.TargetPersonnelOfficer;

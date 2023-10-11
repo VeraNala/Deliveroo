@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using Dalamud.Game.ClientState.Objects.Types;
-using Dalamud.Memory;
 using Deliveroo.GameData;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
+using LLib.GameUI;
 using ValueType = FFXIVClientStructs.FFXIV.Component.GUI.ValueType;
 
 namespace Deliveroo;
@@ -30,8 +30,8 @@ partial class DeliverooPlugin
             if (addonId == 0)
                 return;
 
-            AtkUnitBase* addon = GetAddonById(addonId);
-            if (addon == null || !IsAddonReady(addon))
+            AtkUnitBase* addon = LAddon.GetAddonById(addonId);
+            if (addon == null || !LAddon.IsAddonReady(addon))
                 return;
 
             // if using haseltweaks, this *can* be the default
@@ -73,8 +73,8 @@ partial class DeliverooPlugin
             if (addonId == 0)
                 return;
 
-            AtkUnitBase* addon = GetAddonById(addonId);
-            if (addon == null || !IsAddonReady(addon))
+            AtkUnitBase* addon = LAddon.GetAddonById(addonId);
+            if (addon == null || !LAddon.IsAddonReady(addon))
                 return;
 
             var addonGc = (AddonGrandCompanySupplyList*)addon;
@@ -173,10 +173,10 @@ partial class DeliverooPlugin
 
     private unsafe void TurnInSelectedItem()
     {
-        if (TryGetAddonByName<AddonGrandCompanySupplyReward>("GrandCompanySupplyReward",
-                out var addonSupplyReward) && IsAddonReady(&addonSupplyReward->AtkUnitBase))
+        if (_gameGui.TryGetAddonByName<AddonGrandCompanySupplyReward>("GrandCompanySupplyReward",
+                out var addonSupplyReward) && LAddon.IsAddonReady(&addonSupplyReward->AtkUnitBase))
         {
-            _pluginLog.Information($"Turning in '{ReadAtkString(addonSupplyReward->AtkUnitBase.AtkValues[4])}'");
+            _pluginLog.Information($"Turning in '{addonSupplyReward->AtkUnitBase.AtkValues[4].ReadAtkString()}'");
 
             addonSupplyReward->AtkUnitBase.FireCallbackInt(0);
             _continueAt = DateTime.Now.AddSeconds(0.58);
@@ -186,8 +186,8 @@ partial class DeliverooPlugin
 
     private unsafe void FinalizeTurnInItem()
     {
-        if (TryGetAddonByName<AddonGrandCompanySupplyList>("GrandCompanySupplyList",
-                out var addonSupplyList) && IsAddonReady(&addonSupplyList->AtkUnitBase))
+        if (_gameGui.TryGetAddonByName<AddonGrandCompanySupplyList>("GrandCompanySupplyList",
+                out var addonSupplyList) && LAddon.IsAddonReady(&addonSupplyList->AtkUnitBase))
         {
             var updateFilter = stackalloc AtkValue[]
             {

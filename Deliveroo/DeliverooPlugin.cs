@@ -14,6 +14,7 @@ using Deliveroo.GameData;
 using Deliveroo.Windows;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
+using LLib.GameUI;
 using Lumina.Excel.GeneratedSheets;
 
 namespace Deliveroo;
@@ -207,12 +208,12 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
                 if (nextItem != null && GetCurrentSealCount() >= _configuration.ReservedSealCount + nextItem.SealCost)
                     CurrentStage = Stage.TargetQuartermaster;
 
-                if (TryGetAddonByName<AddonGrandCompanySupplyList>("GrandCompanySupplyList", out var gcSupplyList) &&
-                    IsAddonReady(&gcSupplyList->AtkUnitBase))
+                if (_gameGui.TryGetAddonByName<AddonGrandCompanySupplyList>("GrandCompanySupplyList", out var gcSupplyList) &&
+                    LAddon.IsAddonReady(&gcSupplyList->AtkUnitBase))
                     CurrentStage = Stage.SelectExpertDeliveryTab;
 
-                if (TryGetAddonByName<AtkUnitBase>("GrandCompanyExchange", out var gcExchange) &&
-                    IsAddonReady(gcExchange))
+                if (_gameGui.TryGetAddonByName<AtkUnitBase>("GrandCompanyExchange", out var gcExchange) &&
+                    LAddon.IsAddonReady(gcExchange))
                     CurrentStage = Stage.SelectRewardTier;
             }
 
