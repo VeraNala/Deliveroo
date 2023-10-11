@@ -1,5 +1,5 @@
 ﻿using System.Reflection;
-using Dalamud.Logging;
+using LLib;
 
 namespace Deliveroo.External;
 

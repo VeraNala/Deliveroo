@@ -12,6 +12,7 @@ using Deliveroo.GameData;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using ImGuiNET;
+using LLib;
 
 namespace Deliveroo.Windows;
 
@@ -90,6 +91,8 @@ internal sealed class TurnInWindow : Window
 
     public override void Draw()
     {
+        LImGui.AddPatreonIcon(_pluginInterface);
+
         GrandCompany grandCompany = _plugin.GetGrandCompany();
         if (grandCompany == GrandCompany.None)
         {

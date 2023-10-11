@@ -11,6 +11,7 @@ using Dalamud.Plugin.Services;
 using Deliveroo.GameData;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using ImGuiNET;
+using LLib;
 
 namespace Deliveroo.Windows;
 
@@ -51,6 +52,8 @@ internal sealed class ConfigWindow : Window
 
     public override void Draw()
     {
+        LImGui.AddPatreonIcon(_pluginInterface);
+
         if (_configuration.AddVentureIfNoItemToPurchaseSelected())
             Save();
 

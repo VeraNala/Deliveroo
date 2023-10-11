@@ -11,6 +11,7 @@
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
         <DebugType>portable</DebugType>
+        <PathMap Condition="$(SolutionDir) != ''">$(SolutionDir)=X:\</PathMap>
     </PropertyGroup>
 
     <PropertyGroup>
@@ -20,6 +21,10 @@
     <PropertyGroup Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))'">
         <DalamudLibPath>$(DALAMUD_HOME)/</DalamudLibPath>
     </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\LLib\LLib.csproj" />
+    </ItemGroup>
 
     <ItemGroup>
         <PackageReference Include="DalamudPackager" Version="2.1.12"/>
@@ -51,7 +56,6 @@
             <Private>false</Private>
         </Reference>
     </ItemGroup>
-
 
     <Target Name="RenameLatestZip" AfterTargets="PackagePlugin">
         <Exec Command="rename $(OutDir)$(AssemblyName)\latest.zip $(AssemblyName)-$(Version).zip"/>

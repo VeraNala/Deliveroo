@@ -1,0 +1,3 @@
+[submodule "LLib"]
+	path = LLib
+	url = git@git.carvel.li:liza/LLib.git
