@@ -2,12 +2,14 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Interface;
 using Dalamud.Interface.Colors;
 using Dalamud.Interface.Components;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Windowing;
 using Dalamud.Plugin;
+using Dalamud.Plugin.Services;
 using Deliveroo.GameData;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
@@ -21,16 +23,18 @@ internal sealed class TurnInWindow : Window
     private readonly DeliverooPlugin _plugin;
     private readonly DalamudPluginInterface _pluginInterface;
     private readonly Configuration _configuration;
+    private readonly ICondition _condition;
     private readonly GcRewardsCache _gcRewardsCache;
     private readonly ConfigWindow _configWindow;
 
     public TurnInWindow(DeliverooPlugin plugin, DalamudPluginInterface pluginInterface, Configuration configuration,
-        GcRewardsCache gcRewardsCache, ConfigWindow configWindow)
+        ICondition condition, GcRewardsCache gcRewardsCache, ConfigWindow configWindow)
         : base("GC Delivery###DeliverooTurnIn")
     {
         _plugin = plugin;
         _pluginInterface = pluginInterface;
         _configuration = configuration;
+        _condition = condition;
         _gcRewardsCache = gcRewardsCache;
         _configWindow = configWindow;
 
@@ -89,7 +93,7 @@ internal sealed class TurnInWindow : Window
         }
     }
 
-    public override void Draw()
+    public override unsafe void Draw()
     {
         LImGui.AddPatreonIcon(_pluginInterface);
 
@@ -132,6 +136,20 @@ internal sealed class TurnInWindow : Window
             else
             {
                 ImGui.TextColored(ImGuiColors.HealerGreen, $"Current Buff: {(Multiplier - 1m) * 100:N0}%%");
+            }
+
+            if (Multiplier <= 1.10m)
+            {
+                InventoryManager* inventoryManager = InventoryManager.Instance();
+                if (inventoryManager->GetInventoryItemCount(ItemIds.PrioritySealAllowance) > 0)
+                {
+                    ImGui.BeginDisabled(_condition[ConditionFlag.OccupiedInQuestEvent] || _condition[ConditionFlag.Casting]);
+                    if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.Bolt, "Use Priority Seal Allowance (15%)"))
+                    {
+                        AgentInventoryContext.Instance()->UseItem(ItemIds.PrioritySealAllowance);
+                    }
+                    ImGui.EndDisabled();
+                }
             }
 
             ImGui.Unindent(27);
