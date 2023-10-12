@@ -51,24 +51,16 @@ partial class DeliverooPlugin
 
     private float GetDistanceToNpc(int npcId, out GameObject? o)
     {
-        try
+        foreach (var obj in _objectTable)
         {
-            foreach (var obj in _objectTable)
+            if (obj.ObjectKind == ObjectKind.EventNpc && obj is Character c)
             {
-                // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
-                if (obj != null && obj.ObjectKind == ObjectKind.EventNpc && obj is Character c)
+                if (GetNpcId(obj) == npcId)
                 {
-                    if (GetNpcId(obj) == npcId)
-                    {
-                        o = obj;
-                        return Vector3.Distance(_clientState.LocalPlayer!.Position, c.Position);
-                    }
+                    o = obj;
+                    return Vector3.Distance(_clientState.LocalPlayer?.Position ?? Vector3.Zero, c.Position);
                 }
             }
-        }
-        catch (Exception)
-        {
-            // ignore
         }
 
         o = null;
