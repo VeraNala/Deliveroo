@@ -24,6 +24,7 @@ internal sealed class Configuration : IPluginConfiguration
     {
         public uint ItemId { get; set; }
         public int Limit { get; set; }
+        public bool Enabled { get; set; } = true;
     }
 
     public bool AddVentureIfNoItemToPurchaseSelected()

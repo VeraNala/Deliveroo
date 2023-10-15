@@ -72,7 +72,8 @@ internal sealed class TurnInWindow : Window
 
             var rank = _plugin.GetGrandCompanyRank();
             return ItemsWrapper.GetItemsToPurchase()
-                .Where(x => x.ItemId != 0)
+                .Where(x => x.ItemId != GcRewardItem.None.ItemId)
+                .Where(x => x.Enabled)
                 .Select(x => new { Item = x, Reward = _gcRewardsCache.GetReward(x.ItemId) })
                 .Where(x => x.Reward.GrandCompanies.Contains(grandCompany))
                 .Where(x => x.Reward.RequiredRank <= rank)
@@ -191,10 +192,23 @@ internal sealed class TurnInWindow : Window
         }
 
         int? itemToRemove = null;
+        Configuration.PurchasePriority? itemToAdd = null;
+        int indexToAdd = 0;
         for (int i = 0; i < itemsWrapper.GetItemsToPurchase().Count; ++i)
         {
             ImGui.PushID($"ItemToBuy{i}");
             var item = itemsWrapper.GetItemsToPurchase()[i];
+            bool enabled = item.Enabled;
+            ImGui.PushID($"Enable{i}");
+            if (ImGui.Checkbox("", ref enabled))
+            {
+                item.Enabled = enabled;
+                itemsWrapper.Save();
+            }
+            ImGui.PopID();
+
+            ImGui.SameLine(0, 3);
+            ImGui.BeginDisabled(!enabled);
             int comboValueIndex = comboValues.FindIndex(x => x.ItemId == item.ItemId);
             if (comboValueIndex < 0)
             {
@@ -211,53 +225,86 @@ internal sealed class TurnInWindow : Window
                 itemsWrapper.Save();
             }
 
+            ImGui.EndDisabled();
+
             if (itemsWrapper.GetItemsToPurchase().Count >= 2)
             {
+                ImGui.SameLine();
+                if (ImGuiComponents.IconButton($"##Up{i}", FontAwesomeIcon.ArrowUp))
+                {
+                    itemToAdd = item;
+                    if (i > 0)
+                        indexToAdd = i - 1;
+                    else
+                        indexToAdd = itemsWrapper.GetItemsToPurchase().Count - 1;
+                }
+
+                ImGui.SameLine(0, 0);
+                if (ImGuiComponents.IconButton($"##Down{i}", FontAwesomeIcon.ArrowDown))
+                {
+                    itemToAdd = item;
+                    if (i < itemsWrapper.GetItemsToPurchase().Count - 1)
+                        indexToAdd = i + 1;
+                    else
+                        indexToAdd = 0;
+                }
+
                 ImGui.SameLine();
                 if (ImGuiComponents.IconButton($"###Remove{i}", FontAwesomeIcon.Times))
                     itemToRemove = i;
             }
 
-            ImGui.Indent(27);
-            if (comboValueIndex > 0)
+            if (enabled)
             {
-                ImGui.SetNextItemWidth(ImGuiHelpers.GlobalScale * 130);
-                int limit = item.Limit;
-                if (item.ItemId == ItemIds.Venture)
-                    limit = Math.Min(limit, 65_000);
-
-                if (ImGui.InputInt("Maximum items to buy", ref limit, 50, 500))
+                ImGui.Indent(27);
+                if (comboValueIndex > 0)
                 {
-                    item.Limit = Math.Max(0, limit);
+                    ImGui.SetNextItemWidth(ImGuiHelpers.GlobalScale * 130);
+                    int limit = item.Limit;
                     if (item.ItemId == ItemIds.Venture)
-                        item.Limit = Math.Min(item.Limit, 65_000);
+                        limit = Math.Min(limit, 65_000);
 
+                    if (ImGui.InputInt("Maximum items to buy", ref limit, 50, 500))
+                    {
+                        item.Limit = Math.Max(0, limit);
+                        if (item.ItemId == ItemIds.Venture)
+                            item.Limit = Math.Min(item.Limit, 65_000);
+
+                        itemsWrapper.Save();
+                    }
+                }
+                else if (item.Limit != 0)
+                {
+                    item.Limit = 0;
                     itemsWrapper.Save();
                 }
-            }
-            else if (item.Limit != 0)
-            {
-                item.Limit = 0;
-                itemsWrapper.Save();
+
+                if (comboValueIndex > 0)
+                {
+                    var comboItem = comboValues[comboValueIndex];
+                    if (!comboItem.GrandCompanies.Contains(grandCompany))
+                    {
+                        ImGui.TextColored(ImGuiColors.DalamudRed,
+                            "This item will be skipped, as you are in the wrong Grand Company.");
+                    }
+                    else if (comboItem.Rank > _plugin.GetGrandCompanyRank())
+                    {
+                        ImGui.TextColored(ImGuiColors.DalamudRed,
+                            "This item will be skipped, your rank isn't high enough to buy it.");
+                    }
+                }
+
+                ImGui.Unindent(27);
             }
 
-            if (comboValueIndex > 0)
-            {
-                var comboItem = comboValues[comboValueIndex];
-                if (!comboItem.GrandCompanies.Contains(grandCompany))
-                {
-                    ImGui.TextColored(ImGuiColors.DalamudRed,
-                        "This item will be skipped, as you are in the wrong Grand Company.");
-                }
-                else if (comboItem.Rank > _plugin.GetGrandCompanyRank())
-                {
-                    ImGui.TextColored(ImGuiColors.DalamudRed,
-                        "This item will be skipped, your rank isn't high enough to buy it.");
-                }
-            }
-
-            ImGui.Unindent(27);
             ImGui.PopID();
+        }
+
+        if (itemToAdd != null)
+        {
+            itemsWrapper.Remove(itemToAdd);
+            itemsWrapper.Insert(indexToAdd, itemToAdd);
+            itemsWrapper.Save();
         }
 
         if (itemToRemove != null)
@@ -270,9 +317,25 @@ internal sealed class TurnInWindow : Window
                 itemsWrapper.GetItemsToPurchase().All(y => x != y.ItemId)))
         {
             if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.Plus, "Add Item"))
+                ImGui.OpenPopup("##AddItem");
+
+            if (ImGui.BeginPopupContextItem("##AddItem", ImGuiPopupFlags.NoOpenOverItems))
             {
-                itemsWrapper.Add(new Configuration.PurchasePriority { ItemId = GcRewardItem.None.ItemId, Limit = 0 });
-                itemsWrapper.Save();
+                foreach (var itemId in _configuration.ItemsAvailableForPurchase.Distinct())
+                {
+                    if (_gcRewardsCache.RewardLookup.TryGetValue(itemId, out var reward))
+                    {
+                        if (ImGui.MenuItem($"{reward.Name}##{itemId}"))
+                        {
+                            itemsWrapper.Add(new Configuration.PurchasePriority { ItemId = itemId, Limit = 0 });
+                            itemsWrapper.Save();
+                            ImGui.CloseCurrentPopup();
+
+                        }
+                    }
+                }
+
+                ImGui.EndPopup();
             }
         }
     }
@@ -310,6 +373,8 @@ internal sealed class TurnInWindow : Window
 
         IReadOnlyList<Configuration.PurchasePriority> GetItemsToPurchase();
         void Add(Configuration.PurchasePriority purchasePriority);
+        void Insert(int index, Configuration.PurchasePriority purchasePriority);
+        void Remove(Configuration.PurchasePriority purchasePriority);
         void RemoveAt(int index);
         void Save();
     }
@@ -333,6 +398,12 @@ internal sealed class TurnInWindow : Window
 
         public void Add(Configuration.PurchasePriority purchasePriority)
             => _characterConfiguration.ItemsToPurchase.Add(purchasePriority);
+
+        public void Insert(int index, Configuration.PurchasePriority purchasePriority)
+            => _characterConfiguration.ItemsToPurchase.Insert(index, purchasePriority);
+
+        public void Remove(Configuration.PurchasePriority purchasePriority)
+            => _characterConfiguration.ItemsToPurchase.Remove(purchasePriority);
 
         public void RemoveAt(int index)
             => _characterConfiguration.ItemsToPurchase.RemoveAt(index);
@@ -359,6 +430,12 @@ internal sealed class TurnInWindow : Window
 
         public void Add(Configuration.PurchasePriority purchasePriority)
             => _configuration.ItemsToPurchase.Add(purchasePriority);
+
+        public void Insert(int index, Configuration.PurchasePriority purchasePriority)
+            => _configuration.ItemsToPurchase.Insert(index, purchasePriority);
+
+        public void Remove(Configuration.PurchasePriority purchasePriority)
+            => _configuration.ItemsToPurchase.Remove(purchasePriority);
 
         public void RemoveAt(int index)
             => _configuration.ItemsToPurchase.RemoveAt(index);
