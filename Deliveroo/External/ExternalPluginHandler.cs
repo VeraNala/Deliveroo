@@ -7,6 +7,7 @@ namespace Deliveroo.External;
 internal sealed class ExternalPluginHandler
 {
     private readonly IPluginLog _pluginLog;
+    private readonly DeliverooIpc _deliverooIpc;
     private readonly YesAlreadyIpc _yesAlreadyIpc;
     private readonly PandoraIpc _pandoraIpc;
 
@@ -16,6 +17,7 @@ internal sealed class ExternalPluginHandler
     public ExternalPluginHandler(DalamudPluginInterface pluginInterface, IFramework framework, IPluginLog pluginLog)
     {
         _pluginLog = pluginLog;
+        _deliverooIpc = new DeliverooIpc(pluginInterface);
 
         var dalamudReflector = new DalamudReflector(pluginInterface, framework, pluginLog);
         _yesAlreadyIpc = new YesAlreadyIpc(dalamudReflector);
@@ -33,6 +35,7 @@ internal sealed class ExternalPluginHandler
         }
 
         _pluginLog.Information("Saving external plugin state...");
+        _deliverooIpc.StartTurnIn();
         SaveYesAlreadyState();
         SavePandoraState();
         Saved = true;
@@ -61,6 +64,7 @@ internal sealed class ExternalPluginHandler
         Saved = false;
         _yesAlreadyState = null;
         _pandoraState = null;
+        _deliverooIpc.StopTurnIn();
     }
 
     private void RestoreYesAlready()
