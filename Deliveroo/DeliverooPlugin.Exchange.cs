@@ -11,7 +11,7 @@ partial class DeliverooPlugin
 {
     private void InteractWithQuartermaster(GameObject personnelOfficer, GameObject quartermaster)
     {
-        if (GetCurrentSealCount() < _configuration.ReservedSealCount)
+        if (GetCurrentSealCount() < EffectiveReservedSealCount)
         {
             CurrentStage = Stage.RequestStop;
             return;
@@ -132,7 +132,7 @@ partial class DeliverooPlugin
             if (itemId == item.ItemId)
             {
                 _pluginLog.Information($"Selecting item {itemId}, {i}");
-                long toBuy = (GetCurrentSealCount() - _configuration.ReservedSealCount) / item.SealCost;
+                long toBuy = (GetCurrentSealCount() - EffectiveReservedSealCount) / item.SealCost;
                 toBuy = Math.Min(toBuy, item.EffectiveLimit - GetItemCount(item.ItemId));
 
                 if (item.ItemId != ItemIds.Venture && !_configuration.IgnoreCertainLimitations)

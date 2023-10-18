@@ -39,12 +39,12 @@ internal sealed class ConfigWindow : Window
 
         _itemLookup = _gcRewardsCache.RewardLookup;
 
-        Size = new Vector2(420, 300);
-        SizeCondition = ImGuiCond.Appearing;
+        Size = new Vector2(440, 300);
+        SizeCondition = ImGuiCond.FirstUseEver;
 
         SizeConstraints = new WindowSizeConstraints
         {
-            MinimumSize = new Vector2(420, 300),
+            MinimumSize = new Vector2(440, 300),
             MaximumSize = new Vector2(9999, 9999),
         };
     }
@@ -261,13 +261,35 @@ internal sealed class ConfigWindow : Window
     {
         if (ImGui.BeginTabItem("Additional Settings"))
         {
-            ImGui.SetNextItemWidth(ImGuiHelpers.GlobalScale * 100);
+            ImGui.SetNextItemWidth(ImGuiHelpers.GlobalScale * 120);
             int reservedSealCount = _configuration.ReservedSealCount;
             if (ImGui.InputInt("Minimum Seals to keep (e.g. for Squadron Missions)", ref reservedSealCount, 1000))
             {
-                _configuration.ReservedSealCount = Math.Max(0, Math.Min(90_000, reservedSealCount));
+                _configuration.ReservedSealCount = Math.Max(0, Math.Min((int)_plugin.GetMaxSealCap(), reservedSealCount));
                 Save();
             }
+
+            ImGui.BeginDisabled(reservedSealCount <= 0);
+            bool reserveDifferentSealCountAtMaxRank = _configuration.ReserveDifferentSealCountAtMaxRank;
+            if (ImGui.Checkbox("Use a different amount at max rank", ref reserveDifferentSealCountAtMaxRank))
+            {
+                _configuration.ReserveDifferentSealCountAtMaxRank = reserveDifferentSealCountAtMaxRank;
+                Save();
+            }
+
+            if (reserveDifferentSealCountAtMaxRank)
+            {
+                ImGui.Indent();
+                ImGui.SetNextItemWidth(ImGuiHelpers.GlobalScale * 100);
+                int reservedSealCountAtMaxRank = _configuration.ReservedSealCountAtMaxRank;
+                if (ImGui.InputInt("Minimum seals to keep at max rank", ref reservedSealCountAtMaxRank))
+                {
+                    _configuration.ReservedSealCountAtMaxRank = Math.Max(0, Math.Min((int)_plugin.GetMaxSealCap(), reservedSealCountAtMaxRank));
+                    Save();
+                }
+                ImGui.Unindent();
+            }
+            ImGui.EndDisabled();
 
             ImGui.EndTabItem();
         }

@@ -31,7 +31,7 @@ partial class DeliverooPlugin
             addonSelectYesNo->AtkUnitBase.FireCallbackInt(0);
 
             var nextItem = GetNextItemToPurchase(item);
-            if (nextItem != null && GetCurrentSealCount() >= _configuration.ReservedSealCount + nextItem.SealCost)
+            if (nextItem != null && GetCurrentSealCount() >= EffectiveReservedSealCount + nextItem.SealCost)
                 CurrentStage = Stage.SelectRewardTier;
             else
                 CurrentStage = Stage.CloseGcExchange;

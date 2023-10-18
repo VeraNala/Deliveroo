@@ -118,6 +118,11 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         }
     }
 
+    public int EffectiveReservedSealCount =>
+        _configuration.ReserveDifferentSealCountAtMaxRank && GetSealCap() == GetMaxSealCap()
+            ? _configuration.ReservedSealCountAtMaxRank
+            : _configuration.ReservedSealCount;
+
     private void Login()
     {
         try
@@ -205,7 +210,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
 
 
                 var nextItem = GetNextItemToPurchase();
-                if (nextItem != null && GetCurrentSealCount() >= _configuration.ReservedSealCount + nextItem.SealCost)
+                if (nextItem != null && GetCurrentSealCount() >= EffectiveReservedSealCount + nextItem.SealCost)
                     CurrentStage = Stage.TargetQuartermaster;
 
                 if (_gameGui.TryGetAddonByName<AddonGrandCompanySupplyList>("GrandCompanySupplyList", out var gcSupplyList) &&

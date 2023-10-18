@@ -11,7 +11,9 @@ internal sealed class Configuration : IPluginConfiguration
     public List<uint> ItemsAvailableForPurchase { get; set; } = new();
     public List<PurchasePriority> ItemsToPurchase { get; set; } = new();
 
-    public int ReservedSealCount { get; set; } = 0;
+    public int ReservedSealCount { get; set; }
+    public bool ReserveDifferentSealCountAtMaxRank { get; set; }
+    public int ReservedSealCountAtMaxRank { get; set; }
 
     /// <summary>
     /// A config-only setting, not exposed in the UI.

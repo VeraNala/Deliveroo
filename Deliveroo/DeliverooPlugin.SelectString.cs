@@ -86,8 +86,7 @@ partial class DeliverooPlugin
             _turnInWindow.State = false;
             CurrentStage = Stage.RequestStop;
         }
-        else if (GetCurrentSealCount() <=
-                 _configuration.ReservedSealCount + GetNextItemToPurchase()!.SealCost)
+        else if (GetCurrentSealCount() <= EffectiveReservedSealCount + GetNextItemToPurchase()!.SealCost)
         {
             _turnInWindow.State = false;
             CurrentStage = Stage.RequestStop;

@@ -11,7 +11,6 @@ using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Common.Math;
-using FFXIVClientStructs.FFXIV.Component.GUI;
 
 namespace Deliveroo;
 
@@ -95,6 +94,8 @@ partial class DeliverooPlugin
     }
 
     private uint GetSealCap() => _sealCaps.TryGetValue(GetGrandCompanyRank(), out var cap) ? cap : 0;
+
+    public uint GetMaxSealCap() => _sealCaps[11];
 
     public unsafe int GetItemCount(uint itemId)
     {
