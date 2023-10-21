@@ -14,6 +14,7 @@ internal sealed class Configuration : IPluginConfiguration
     public int ReservedSealCount { get; set; }
     public bool ReserveDifferentSealCountAtMaxRank { get; set; }
     public int ReservedSealCountAtMaxRank { get; set; }
+    public int PauseAtRank { get; set; }
 
     /// <summary>
     /// A config-only setting, not exposed in the UI.

@@ -6,6 +6,8 @@ using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Objects;
 using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Game.Command;
+using Dalamud.Game.Text;
+using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Interface.Windowing;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
@@ -87,6 +89,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         _pluginInterface.UiBuilder.OpenConfigUi += _configWindow.Toggle;
         _clientState.Login += Login;
         _clientState.Logout += Logout;
+        _chatGui.ChatMessage += ChatMessage;
         _commandManager.AddHandler("/deliveroo", new CommandInfo(ProcessCommand)
         {
             HelpMessage = "Open the configuration"
@@ -100,6 +103,30 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
 
         _addonLifecycle.RegisterListener(AddonEvent.PostSetup, "SelectString", SelectStringPostSetup);
         _addonLifecycle.RegisterListener(AddonEvent.PostSetup, "SelectYesno", SelectYesNoPostSetup);
+    }
+
+    private void ChatMessage(XivChatType type, uint senderId, ref SeString sender, ref SeString message, ref bool isHandled)
+    {
+        if (_configuration.PauseAtRank <= 0)
+            return;
+
+        if (type != _gameStrings.RankUpFcType)
+            return;
+
+        var match = _gameStrings.RankUpFc.Match(message.ToString());
+        if (!match.Success)
+            return;
+
+        foreach (var group in match.Groups.Values)
+        {
+            if (int.TryParse(group.Value, out int rank) && rank == _configuration.PauseAtRank)
+            {
+                _turnInWindow.State = false;
+                _pluginLog.Information($"Pausing GC delivery, FC reached rank {rank}");
+                _chatGui.Print($"Pausing Deliveroo, your FC reached rank {rank}.");
+                return;
+            }
+        }
     }
 
     internal CharacterConfiguration? CharacterConfiguration { get; set; }
@@ -305,6 +332,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         _addonLifecycle.UnregisterListener(AddonEvent.PostSetup, "SelectString", SelectStringPostSetup);
 
         _commandManager.RemoveHandler("/deliveroo");
+        _chatGui.ChatMessage -= ChatMessage;
         _clientState.Logout -= Logout;
         _clientState.Login -= Login;
         _pluginInterface.UiBuilder.OpenConfigUi -= _configWindow.Toggle;

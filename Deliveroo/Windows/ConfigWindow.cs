@@ -291,6 +291,18 @@ internal sealed class ConfigWindow : Window
             }
             ImGui.EndDisabled();
 
+            ImGui.SetNextItemWidth(ImGuiHelpers.GlobalScale * 120);
+            List<(int Rank, string Name)> rankUpComboValues = Enumerable.Range(1, 30)
+                .Select(x => x == 1 ? (0, "---") : (x, $"Rank {x}"))
+                .ToList();
+            int pauseAtRank = Math.Max(rankUpComboValues.FindIndex(x => x.Rank == _configuration.PauseAtRank), 0);
+            if (ImGui.Combo("Pause when reaching selected FC Rank", ref pauseAtRank, rankUpComboValues.Select(x => x.Name).ToArray(),
+                    rankUpComboValues.Count))
+            {
+                _configuration.PauseAtRank = rankUpComboValues[pauseAtRank].Rank;
+                Save();
+            }
+
             ImGui.EndTabItem();
         }
     }
