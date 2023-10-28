@@ -19,7 +19,7 @@ internal sealed class GameStrings
         ClosePersonnelOfficerTalk =
             dataManager.GetString<ComDefGrandCompanyOfficer>("TEXT_COMDEFGRANDCOMPANYOFFICER_00073_A4_004", pluginLog)
             ?? throw new Exception($"Unable to resolve {nameof(ClosePersonnelOfficerTalk)}");
-        ExchangeItems = dataManager.GetRegex<Addon>(4928, addon => addon.Text, pluginLog)
+        ExchangeItems = dataManager.GetRegex<Addon>(3290, addon => addon.Text, pluginLog)
                         ?? throw new Exception($"Unable to resolve {nameof(ExchangeItems)}");
         TradeHighQualityItem = dataManager.GetString<Addon>(102434, addon => addon.Text, pluginLog)
                                ?? throw new Exception($"Unable to resolve {nameof(TradeHighQualityItem)}");
