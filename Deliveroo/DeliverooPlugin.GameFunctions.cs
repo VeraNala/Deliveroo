@@ -132,25 +132,12 @@ partial class DeliverooPlugin
             // this includes all items, even if they don't match the filter
             list.Add(new TurnInItem
             {
-                ItemId = Marshal.ReadInt32(new nint(&item) + 132),
+                ItemId = item.ItemId,
                 Name = MemoryHelper.ReadSeString(&item.ItemName).ToString(),
                 SealsWithBonus = (int)Math.Round(item.SealReward * GetSealMultiplier(), MidpointRounding.AwayFromZero),
                 SealsWithoutBonus = item.SealReward,
-                ItemUiCategory = Marshal.ReadByte(new nint(&item) + 150),
+                ItemUiCategory = item.ItemUiCategory,
             });
-
-            // GrandCompanyItem + 104 = [int] InventoryType
-            // GrandCompanyItem + 108 = [int] ??
-            // GrandCompanyItem + 124 = [int] <Item's Column 19 in the sheet, but that has no name>
-            // GrandCompanyItem + 132 = [int] itemId
-            // GrandCompanyItem + 136 = [int] 0 (always)?
-            // GrandCompanyItem + 140 = [int] i (item's own position within the unsorted list)
-            // GrandCompanyItem + 148 = [short] ilvl
-            // GrandCompanyItem + 150 = [byte] ItemUICategory
-            // GrandCompanyItem + 151 = [byte] (unchecked) inventory slot in container
-            // GrandCompanyItem + 152 = [short] 512 (always)?
-            // int itemId = Marshal.ReadInt32(new nint(&item) + 132);
-            // PluginLog.Verbose($" {Marshal.ReadInt32(new nint(&item) + 132)};;;; {MemoryHelper.ReadSeString(&item.ItemName)}, {new nint(&agent->ItemArray[i]):X8}, {item.SealReward}, {item.IsTurnInAvailable}");
         }
 
         return list.OrderByDescending(x => x.SealsWithBonus)
