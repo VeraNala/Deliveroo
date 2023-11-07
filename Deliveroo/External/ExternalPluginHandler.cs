@@ -1,26 +1,23 @@
-﻿using Dalamud.Plugin;
+﻿using System.Collections.Generic;
+using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
-using LLib;
 
 namespace Deliveroo.External;
 
 internal sealed class ExternalPluginHandler
 {
+    private readonly DalamudPluginInterface _pluginInterface;
     private readonly IPluginLog _pluginLog;
     private readonly DeliverooIpc _deliverooIpc;
-    private readonly YesAlreadyIpc _yesAlreadyIpc;
     private readonly PandoraIpc _pandoraIpc;
 
-    private bool? _yesAlreadyState;
     private bool? _pandoraState;
 
-    public ExternalPluginHandler(DalamudPluginInterface pluginInterface, IFramework framework, IPluginLog pluginLog)
+    public ExternalPluginHandler(DalamudPluginInterface pluginInterface, IPluginLog pluginLog)
     {
+        _pluginInterface = pluginInterface;
         _pluginLog = pluginLog;
         _deliverooIpc = new DeliverooIpc(pluginInterface);
-
-        var dalamudReflector = new DalamudReflector(pluginInterface, framework, pluginLog);
-        _yesAlreadyIpc = new YesAlreadyIpc(dalamudReflector);
         _pandoraIpc = new PandoraIpc(pluginInterface, pluginLog);
     }
 
@@ -43,8 +40,12 @@ internal sealed class ExternalPluginHandler
 
     private void SaveYesAlreadyState()
     {
-        _yesAlreadyState = _yesAlreadyIpc.DisableIfNecessary();
-        _pluginLog.Information($"Previous yesalready state: {_yesAlreadyState}");
+        if (_pluginInterface.TryGetData<HashSet<string>>("YesAlready.StopRequests", out var data) &&
+            !data.Contains(nameof(Deliveroo)))
+        {
+            _pluginLog.Debug("Disabling YesAlready");
+            data.Add(nameof(Deliveroo));
+        }
     }
 
     private void SavePandoraState()
@@ -62,16 +63,18 @@ internal sealed class ExternalPluginHandler
         }
 
         Saved = false;
-        _yesAlreadyState = null;
         _pandoraState = null;
         _deliverooIpc.StopTurnIn();
     }
 
     private void RestoreYesAlready()
     {
-        _pluginLog.Information($"Restoring previous yesalready state: {_yesAlreadyState}");
-        if (_yesAlreadyState == true)
-            _yesAlreadyIpc.Enable();
+        if (_pluginInterface.TryGetData<HashSet<string>>("YesAlready.StopRequests", out var data) &&
+            data.Contains(nameof(Deliveroo)))
+        {
+            _pluginLog.Debug("Restoring YesAlready");
+            data.Remove(nameof(Deliveroo));
+        }
     }
 
     private void RestorePandora()

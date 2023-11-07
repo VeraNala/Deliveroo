@@ -74,7 +74,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         _addonLifecycle = addonLifecycle;
 
         _gameStrings = new GameStrings(dataManager, _pluginLog);
-        _externalPluginHandler = new ExternalPluginHandler(_pluginInterface, _framework, _pluginLog);
+        _externalPluginHandler = new ExternalPluginHandler(_pluginInterface, _pluginLog);
         _configuration = (Configuration?)_pluginInterface.GetPluginConfig() ?? new Configuration();
         _gcRewardsCache = new GcRewardsCache(dataManager);
         _configWindow = new ConfigWindow(_pluginInterface, this, _configuration, _gcRewardsCache, _clientState, _pluginLog);
