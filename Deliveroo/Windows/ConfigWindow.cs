@@ -205,9 +205,18 @@ internal sealed class ConfigWindow : LImGui.LWindow
                         charConfiguration.Save(_pluginInterface);
                     }
 
-                    if (ImGui.IsItemHovered())
-                        ImGui.SetTooltip(
-                            "The default filter for all characters is 'Hide Gear Set Items', but you may want to override this to hide all Armoury Chest items (regardless of whether they're part of a gear set) e.g. for your main character.");
+                    ImGui.SameLine();
+                    ImGuiComponents.HelpMarker("The default filter for all characters is 'Hide Gear Set Items', but you may want to override this to hide all Armoury Chest items (regardless of whether they're part of a gear set) e.g. for your main character.");
+
+                    bool ignoreMinimumSealsToKeep = charConfiguration.IgnoreMinimumSealsToKeep;
+                    if (ImGui.Checkbox("Ignore 'Minimum Seals to keep' setting", ref ignoreMinimumSealsToKeep))
+                    {
+                        charConfiguration.IgnoreMinimumSealsToKeep = ignoreMinimumSealsToKeep;
+                        charConfiguration.Save(_pluginInterface);
+                    }
+
+                    ImGui.SameLine();
+                    ImGuiComponents.HelpMarker("When enabled, all GC seals will be spent. This is effectively the same as setting 'Minimum Seals to keep' to 0.");
 
                     ImGui.EndDisabled();
                     ImGui.Spacing();

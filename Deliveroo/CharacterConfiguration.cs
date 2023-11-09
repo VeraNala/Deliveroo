@@ -11,8 +11,9 @@ internal sealed class CharacterConfiguration
     public string? CachedPlayerName { get; set; }
     public string? CachedWorldName { get; set; }
 
-    public bool DisableForCharacter { get; set; } = false;
-    public bool UseHideArmouryChestItemsFilter { get; set; } = false;
+    public bool DisableForCharacter { get; set; }
+    public bool UseHideArmouryChestItemsFilter { get; set; }
+    public bool IgnoreMinimumSealsToKeep { get; set; }
     public bool OverrideItemsToPurchase { get; set; }
     public List<Configuration.PurchasePriority> ItemsToPurchase { get; set; } = new();
 

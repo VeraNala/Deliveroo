@@ -145,10 +145,18 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         }
     }
 
-    public int EffectiveReservedSealCount =>
-        _configuration.ReserveDifferentSealCountAtMaxRank && GetSealCap() == GetMaxSealCap()
-            ? _configuration.ReservedSealCountAtMaxRank
-            : _configuration.ReservedSealCount;
+    public int EffectiveReservedSealCount
+    {
+        get
+        {
+            if (CharacterConfiguration is { IgnoreMinimumSealsToKeep: true })
+                return 0;
+
+            return _configuration.ReserveDifferentSealCountAtMaxRank && GetSealCap() == GetMaxSealCap()
+                ? _configuration.ReservedSealCountAtMaxRank
+                : _configuration.ReservedSealCount;
+        }
+    }
 
     private void Login()
     {
