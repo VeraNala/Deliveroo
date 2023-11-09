@@ -5,7 +5,6 @@ using System.Numerics;
 using Dalamud.Interface;
 using Dalamud.Interface.Components;
 using Dalamud.Interface.Utility;
-using Dalamud.Interface.Windowing;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using Deliveroo.GameData;
@@ -14,7 +13,7 @@ using LLib;
 
 namespace Deliveroo.Windows;
 
-internal sealed class ConfigWindow : Window
+internal sealed class ConfigWindow : LImGui.LWindow
 {
     private readonly DalamudPluginInterface _pluginInterface;
     private readonly DeliverooPlugin _plugin;
@@ -51,8 +50,6 @@ internal sealed class ConfigWindow : Window
 
     public override void Draw()
     {
-        LImGui.AddPatreonIcon(_pluginInterface);
-
         if (_configuration.AddVentureIfNoItemToPurchaseSelected())
             Save();
 

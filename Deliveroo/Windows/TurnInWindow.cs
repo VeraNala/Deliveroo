@@ -7,7 +7,6 @@ using Dalamud.Interface;
 using Dalamud.Interface.Colors;
 using Dalamud.Interface.Components;
 using Dalamud.Interface.Utility;
-using Dalamud.Interface.Windowing;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using Deliveroo.GameData;
@@ -18,7 +17,7 @@ using LLib;
 
 namespace Deliveroo.Windows;
 
-internal sealed class TurnInWindow : Window
+internal sealed class TurnInWindow : LImGui.LWindow
 {
     private readonly DeliverooPlugin _plugin;
     private readonly DalamudPluginInterface _pluginInterface;
@@ -49,6 +48,7 @@ internal sealed class TurnInWindow : Window
 
         Flags = ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoCollapse;
         ShowCloseButton = false;
+        AllowClickthrough = false;
     }
 
     public bool State { get; set; }
@@ -96,8 +96,6 @@ internal sealed class TurnInWindow : Window
 
     public override unsafe void Draw()
     {
-        LImGui.AddPatreonIcon(_pluginInterface);
-
         GrandCompany grandCompany = _plugin.GetGrandCompany();
         if (grandCompany == GrandCompany.None)
         {
