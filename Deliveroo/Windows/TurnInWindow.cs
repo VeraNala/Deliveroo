@@ -6,6 +6,7 @@ using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Interface;
 using Dalamud.Interface.Colors;
 using Dalamud.Interface.Components;
+using Dalamud.Interface.Internal;
 using Dalamud.Interface.Utility;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
@@ -24,9 +25,10 @@ internal sealed class TurnInWindow : LImGui.LWindow
     private readonly Configuration _configuration;
     private readonly ICondition _condition;
     private readonly GcRewardsCache _gcRewardsCache;
+    private readonly IconCache _iconCache;
 
     public TurnInWindow(DeliverooPlugin plugin, DalamudPluginInterface pluginInterface, Configuration configuration,
-        ICondition condition, GcRewardsCache gcRewardsCache, ConfigWindow configWindow)
+        ICondition condition, GcRewardsCache gcRewardsCache, ConfigWindow configWindow, IconCache iconCache)
         : base("GC Delivery###DeliverooTurnIn")
     {
         _plugin = plugin;
@@ -34,6 +36,7 @@ internal sealed class TurnInWindow : LImGui.LWindow
         _configuration = configuration;
         _condition = condition;
         _gcRewardsCache = gcRewardsCache;
+        _iconCache = iconCache;
 
         Position = new Vector2(100, 100);
         PositionCondition = ImGuiCond.FirstUseEver;
@@ -177,9 +180,9 @@ internal sealed class TurnInWindow : LImGui.LWindow
         var itemsWrapper = ItemsWrapper;
         ImGui.Text($"Items to buy ({itemsWrapper.Name}):");
 
-        List<(uint ItemId, string Name, IReadOnlyList<GrandCompany> GrandCompanies, uint Rank)> comboValues = new()
+        List<(uint ItemId, string Name, IReadOnlyList<GrandCompany> GrandCompanies, uint Rank, ushort IconId)> comboValues = new()
         {
-            (GcRewardItem.None.ItemId, GcRewardItem.None.Name, new List<GrandCompany>(), GcRewardItem.None.RequiredRank)
+            (GcRewardItem.None.ItemId, GcRewardItem.None.Name, new List<GrandCompany>(), GcRewardItem.None.RequiredRank, GcRewardItem.None.IconId)
         };
         foreach (uint itemId in _configuration.ItemsAvailableForPurchase)
         {
@@ -188,7 +191,7 @@ internal sealed class TurnInWindow : LImGui.LWindow
             string itemName = gcReward.Name;
             if (itemCount > 0)
                 itemName += $" ({itemCount:N0})";
-            comboValues.Add((itemId, itemName, gcReward.GrandCompanies, gcReward.RequiredRank));
+            comboValues.Add((itemId, itemName, gcReward.GrandCompanies, gcReward.RequiredRank, gcReward.IconId));
         }
 
         if (itemsWrapper.GetItemsToPurchase().Count == 0)
@@ -204,6 +207,7 @@ internal sealed class TurnInWindow : LImGui.LWindow
         {
             ImGui.PushID($"ItemToBuy{i}");
             var item = itemsWrapper.GetItemsToPurchase()[i];
+
             bool enabled = item.Enabled;
             ImGui.PushID($"Enable{i}");
             if (ImGui.Checkbox("", ref enabled))
@@ -223,6 +227,13 @@ internal sealed class TurnInWindow : LImGui.LWindow
                 itemsWrapper.Save();
 
                 comboValueIndex = 0;
+            }
+
+            IDalamudTextureWrap? icon = _iconCache.GetIcon(comboValues[comboValueIndex].IconId);
+            if (icon != null)
+            {
+                ImGui.Image(icon.ImGuiHandle, new Vector2(23, 23));
+                ImGui.SameLine(0, 3);
             }
 
             if (ImGui.Combo("", ref comboValueIndex, comboValues.Select(x => x.Name).ToArray(), comboValues.Count))
@@ -262,7 +273,7 @@ internal sealed class TurnInWindow : LImGui.LWindow
 
             if (enabled)
             {
-                ImGui.Indent(27);
+                ImGui.Indent(52);
                 if (comboValueIndex > 0)
                 {
                     ImGui.SetNextItemWidth(ImGuiHelpers.GlobalScale * 130);
@@ -300,7 +311,7 @@ internal sealed class TurnInWindow : LImGui.LWindow
                     }
                 }
 
-                ImGui.Unindent(27);
+                ImGui.Unindent(52);
             }
 
             ImGui.PopID();

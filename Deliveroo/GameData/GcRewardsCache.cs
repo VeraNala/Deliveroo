@@ -27,6 +27,7 @@ internal sealed class GcRewardsCache
                 {
                     ItemId = item.Item.Row,
                     Name = item.Item.Value!.Name.ToString(),
+                    IconId = item.Item.Row == ItemIds.Venture ? 25917 : item.Item.Value!.Icon,
                     category.Tier,
                     category.SubCategory,
                     RequiredRank = item.RequiredGrandCompanyRank.Row,
@@ -38,6 +39,7 @@ internal sealed class GcRewardsCache
             {
                 ItemId = item.Key.ItemId,
                 Name = item.Key.Name,
+                IconId = (ushort)item.Key.IconId,
                 Tier = item.Key.Tier,
                 SubCategory = item.Key.SubCategory,
                 RequiredRank = item.Key.RequiredRank,

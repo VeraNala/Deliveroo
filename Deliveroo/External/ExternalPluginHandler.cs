@@ -1,10 +1,11 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 
 namespace Deliveroo.External;
 
-internal sealed class ExternalPluginHandler
+internal sealed class ExternalPluginHandler : IDisposable
 {
     private readonly DalamudPluginInterface _pluginInterface;
     private readonly IPluginLog _pluginLog;
@@ -82,5 +83,10 @@ internal sealed class ExternalPluginHandler
         _pluginLog.Information($"Restoring previous pandora state: {_pandoraState}");
         if (_pandoraState == true)
             _pandoraIpc.Enable();
+    }
+
+    public void Dispose()
+    {
+        _deliverooIpc.Dispose();
     }
 }

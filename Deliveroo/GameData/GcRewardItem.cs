@@ -10,6 +10,7 @@ internal sealed class GcRewardItem : IEquatable<GcRewardItem>
     {
         ItemId = 0,
         Name = "---",
+        IconId = 0,
         GrandCompanies = new List<GrandCompany>().AsReadOnly(),
         Tier = RewardTier.First,
         SubCategory = RewardSubCategory.Unknown,
@@ -20,6 +21,7 @@ internal sealed class GcRewardItem : IEquatable<GcRewardItem>
 
     public required uint ItemId { get; init; }
     public required string Name { get; init; }
+    public required ushort IconId { get; init; }
     public required IReadOnlyList<GrandCompany> GrandCompanies { get; init; }
     public required RewardTier Tier { get; init; }
     public required RewardSubCategory SubCategory { get; init; }
@@ -28,6 +30,7 @@ internal sealed class GcRewardItem : IEquatable<GcRewardItem>
     public required uint SealCost { get; init; }
 
     public bool IsValid() => ItemId > 0 && GrandCompanies.Count > 0;
+    public bool Limited => GrandCompanies.Count < 3;
 
     public bool Equals(GcRewardItem? other)
     {

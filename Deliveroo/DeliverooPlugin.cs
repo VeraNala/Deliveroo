@@ -16,6 +16,7 @@ using Deliveroo.GameData;
 using Deliveroo.Windows;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
+using LLib;
 using LLib.GameUI;
 using Lumina.Excel.GeneratedSheets;
 
@@ -46,6 +47,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
     // ReSharper disable once PrivateFieldCanBeConvertedToLocalVariable
     private readonly GcRewardsCache _gcRewardsCache;
 
+    private readonly IconCache _iconCache;
     private readonly ConfigWindow _configWindow;
     private readonly TurnInWindow _turnInWindow;
     private readonly IReadOnlyDictionary<uint, uint> _sealCaps;
@@ -59,7 +61,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
     public DeliverooPlugin(DalamudPluginInterface pluginInterface, IChatGui chatGui, IGameGui gameGui,
         IFramework framework, IClientState clientState, IObjectTable objectTable, ITargetManager targetManager,
         IDataManager dataManager, ICondition condition, ICommandManager commandManager, IPluginLog pluginLog,
-        IAddonLifecycle addonLifecycle)
+        IAddonLifecycle addonLifecycle, ITextureProvider textureProvider)
     {
         _pluginInterface = pluginInterface;
         _chatGui = chatGui;
@@ -77,9 +79,10 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         _externalPluginHandler = new ExternalPluginHandler(_pluginInterface, _pluginLog);
         _configuration = (Configuration?)_pluginInterface.GetPluginConfig() ?? new Configuration();
         _gcRewardsCache = new GcRewardsCache(dataManager);
-        _configWindow = new ConfigWindow(_pluginInterface, this, _configuration, _gcRewardsCache, _clientState, _pluginLog);
+        _iconCache = new IconCache(textureProvider);
+        _configWindow = new ConfigWindow(_pluginInterface, this, _configuration, _gcRewardsCache, _clientState, _pluginLog, _iconCache);
         _windowSystem.AddWindow(_configWindow);
-        _turnInWindow = new TurnInWindow(this, _pluginInterface, _configuration, _condition, _gcRewardsCache, _configWindow);
+        _turnInWindow = new TurnInWindow(this, _pluginInterface, _configuration, _condition, _gcRewardsCache, _configWindow, _iconCache);
         _windowSystem.AddWindow(_turnInWindow);
         _sealCaps = dataManager.GetExcelSheet<GrandCompanyRank>()!.Where(x => x.RowId > 0)
             .ToDictionary(x => x.RowId, x => x.MaxSeals);
@@ -348,6 +351,9 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         _framework.Update -= FrameworkUpdate;
 
         _externalPluginHandler.Restore();
+
+        _externalPluginHandler.Dispose();
+        _iconCache.Dispose();
     }
 
     private void ProcessCommand(string command, string arguments)

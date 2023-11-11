@@ -2,8 +2,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using Dalamud.Game.Text;
 using Dalamud.Interface;
 using Dalamud.Interface.Components;
+using Dalamud.Interface.Internal;
 using Dalamud.Interface.Utility;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
@@ -21,12 +23,13 @@ internal sealed class ConfigWindow : LImGui.LWindow
     private readonly GcRewardsCache _gcRewardsCache;
     private readonly IClientState _clientState;
     private readonly IPluginLog _pluginLog;
+    private readonly IconCache _iconCache;
 
     private readonly IReadOnlyDictionary<uint, GcRewardItem> _itemLookup;
     private uint _dragDropSource;
 
     public ConfigWindow(DalamudPluginInterface pluginInterface, DeliverooPlugin plugin, Configuration configuration,
-        GcRewardsCache gcRewardsCache, IClientState clientState, IPluginLog pluginLog)
+        GcRewardsCache gcRewardsCache, IClientState clientState, IPluginLog pluginLog, IconCache iconCache)
         : base("Deliveroo - Configuration###DeliverooConfig")
     {
         _pluginInterface = pluginInterface;
@@ -35,6 +38,7 @@ internal sealed class ConfigWindow : LImGui.LWindow
         _gcRewardsCache = gcRewardsCache;
         _clientState = clientState;
         _pluginLog = pluginLog;
+        _iconCache = iconCache;
 
         _itemLookup = _gcRewardsCache.RewardLookup;
 
@@ -79,7 +83,16 @@ internal sealed class ConfigWindow : LImGui.LWindow
                     ImGui.BeginDisabled(
                         _configuration.ItemsAvailableForPurchase.Count == 1 && itemId == ItemIds.Venture);
 
-                    ImGui.Selectable(_itemLookup[itemId].Name);
+                    var item = _itemLookup[itemId];
+                    IDalamudTextureWrap? icon = _iconCache.GetIcon(item.IconId);
+                    if (icon != null)
+                    {
+                        ImGui.Image(icon.ImGuiHandle, new Vector2(23, 23));
+                        ImGui.SameLine();
+                        ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 3);
+                    }
+
+                    ImGui.Selectable($"{item.Name}{(item.Limited ? $" {SeIconChar.Hyadelyn.ToIconString()}" : "")}");
 
                     if (ImGui.BeginDragDropSource())
                     {
@@ -132,22 +145,37 @@ internal sealed class ConfigWindow : LImGui.LWindow
                 Save();
             }
 
-            List<(uint ItemId, string Name)> comboValues = _gcRewardsCache.Rewards
+            List<(uint ItemId, string Name, ushort IconId, bool Limited)> comboValues = _gcRewardsCache.Rewards
                 .Where(x => x.SubCategory is RewardSubCategory.Materials or RewardSubCategory.Materiel)
                 .Where(x => x.StackSize > 1)
                 .Where(x => !_configuration.ItemsAvailableForPurchase.Contains(x.ItemId))
-                .Select(x => (x.ItemId, x.Name))
+                .Select(x => (x.ItemId, x.Name, x.IconId, x.Limited))
                 .OrderBy(x => x.Name)
                 .ThenBy(x => x.GetHashCode())
                 .ToList();
-            comboValues.Insert(0, (0, ""));
 
-            int currentItem = 0;
-            if (ImGui.Combo("Add Item", ref currentItem, comboValues.Select(x => x.Name).ToArray(), comboValues.Count)
-                && comboValues[currentItem].ItemId != GcRewardItem.None.ItemId)
+            if (ImGui.BeginCombo($"##ItemSelection", "Add Item...", ImGuiComboFlags.HeightLarge))
             {
-                _configuration.ItemsAvailableForPurchase.Add(comboValues[currentItem].ItemId);
-                Save();
+                ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
+
+                foreach (var item in comboValues)
+                {
+                    IDalamudTextureWrap? icon = _iconCache.GetIcon(item.IconId);
+                    if (icon != null)
+                    {
+                        ImGui.Image(icon.ImGuiHandle, new Vector2(23, 23));
+                        ImGui.SameLine();
+                        ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 3);
+                    }
+
+                    if (ImGui.Selectable($"{item.Name}{(item.Limited ? $" {SeIconChar.Hyadelyn.ToIconString()}" : "")}##SelectVenture{item.IconId}"))
+                    {
+                        _configuration.ItemsAvailableForPurchase.Add(item.ItemId);
+                        Save();
+                    }
+                }
+
+                ImGui.EndCombo();
             }
 
             ImGui.EndTabItem();
