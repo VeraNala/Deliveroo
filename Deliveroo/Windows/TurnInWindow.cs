@@ -24,7 +24,6 @@ internal sealed class TurnInWindow : LImGui.LWindow
     private readonly Configuration _configuration;
     private readonly ICondition _condition;
     private readonly GcRewardsCache _gcRewardsCache;
-    private readonly ConfigWindow _configWindow;
 
     public TurnInWindow(DeliverooPlugin plugin, DalamudPluginInterface pluginInterface, Configuration configuration,
         ICondition condition, GcRewardsCache gcRewardsCache, ConfigWindow configWindow)
@@ -35,7 +34,6 @@ internal sealed class TurnInWindow : LImGui.LWindow
         _configuration = configuration;
         _condition = condition;
         _gcRewardsCache = gcRewardsCache;
-        _configWindow = configWindow;
 
         Position = new Vector2(100, 100);
         PositionCondition = ImGuiCond.FirstUseEver;
@@ -49,6 +47,20 @@ internal sealed class TurnInWindow : LImGui.LWindow
         Flags = ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoCollapse;
         ShowCloseButton = false;
         AllowClickthrough = false;
+
+        TitleBarButtons.Add(new TitleBarButton
+        {
+            Icon = FontAwesomeIcon.Cog,
+            IconOffset = new Vector2(1.5f, 1),
+            Click = _ => configWindow.IsOpen = true,
+            Priority = int.MinValue,
+            ShowTooltip = () =>
+            {
+                ImGui.BeginTooltip();
+                ImGui.Text("Open Configuration");
+                ImGui.EndTooltip();
+            }
+        });
     }
 
     public bool State { get; set; }
@@ -116,10 +128,6 @@ internal sealed class TurnInWindow : LImGui.LWindow
         {
             State = state;
         }
-
-        ImGui.SameLine();
-        if (ImGuiComponents.IconButton("###OpenConfig", FontAwesomeIcon.Cog))
-            _configWindow.IsOpen = true;
 
         ImGui.Indent(27);
         if (!string.IsNullOrEmpty(Error))
