@@ -26,6 +26,7 @@ internal sealed class ConfigWindow : LImGui.LWindow
     private readonly IconCache _iconCache;
 
     private readonly IReadOnlyDictionary<uint, GcRewardItem> _itemLookup;
+    private string _searchString = string.Empty;
     private uint _dragDropSource;
 
     public ConfigWindow(DalamudPluginInterface pluginInterface, DeliverooPlugin plugin, Configuration configuration,
@@ -147,7 +148,6 @@ internal sealed class ConfigWindow : LImGui.LWindow
 
             List<(uint ItemId, string Name, ushort IconId, bool Limited)> comboValues = _gcRewardsCache.Rewards
                 .Where(x => x.SubCategory is RewardSubCategory.Materials or RewardSubCategory.Materiel)
-                .Where(x => x.StackSize > 1)
                 .Where(x => !_configuration.ItemsAvailableForPurchase.Contains(x.ItemId))
                 .Select(x => (x.ItemId, x.Name, x.IconId, x.Limited))
                 .OrderBy(x => x.Name)
@@ -157,8 +157,10 @@ internal sealed class ConfigWindow : LImGui.LWindow
             if (ImGui.BeginCombo($"##ItemSelection", "Add Item...", ImGuiComboFlags.HeightLarge))
             {
                 ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
+                bool addFirst = ImGui.InputTextWithHint("", "Filter...", ref _searchString, 256,
+                    ImGuiInputTextFlags.AutoSelectAll | ImGuiInputTextFlags.EnterReturnsTrue);
 
-                foreach (var item in comboValues)
+                foreach (var item in comboValues.Where(x => x.Name.ToLower().Contains(_searchString.ToLower())))
                 {
                     IDalamudTextureWrap? icon = _iconCache.GetIcon(item.IconId);
                     if (icon != null)
@@ -168,9 +170,17 @@ internal sealed class ConfigWindow : LImGui.LWindow
                         ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 3);
                     }
 
-                    if (ImGui.Selectable($"{item.Name}{(item.Limited ? $" {SeIconChar.Hyadelyn.ToIconString()}" : "")}##SelectVenture{item.IconId}"))
+                    bool addThis = ImGui.Selectable($"{item.Name}{(item.Limited ? $" {SeIconChar.Hyadelyn.ToIconString()}" : "")}##SelectVenture{item.IconId}");
+                    if (addThis || addFirst)
                     {
                         _configuration.ItemsAvailableForPurchase.Add(item.ItemId);
+
+                        if (addFirst)
+                        {
+                            addFirst = false;
+                            ImGui.CloseCurrentPopup();
+                        }
+
                         Save();
                     }
                 }

@@ -20,6 +20,26 @@ namespace Deliveroo.Windows;
 
 internal sealed class TurnInWindow : LImGui.LWindow
 {
+    private readonly IReadOnlyList<InventoryType> _inventoryTypes = new[]
+    {
+        InventoryType.Inventory1,
+        InventoryType.Inventory2,
+        InventoryType.Inventory3,
+        InventoryType.Inventory4,
+        InventoryType.ArmoryMainHand,
+        InventoryType.ArmoryOffHand,
+        InventoryType.ArmoryHead,
+        InventoryType.ArmoryBody,
+        InventoryType.ArmoryHands,
+        InventoryType.ArmoryLegs,
+        InventoryType.ArmoryFeets,
+        InventoryType.ArmoryEar,
+        InventoryType.ArmoryNeck,
+        InventoryType.ArmoryWrist,
+        InventoryType.ArmoryRings,
+        InventoryType.EquippedItems
+    }.AsReadOnly();
+
     private readonly DeliverooPlugin _plugin;
     private readonly DalamudPluginInterface _pluginInterface;
     private readonly Configuration _configuration;
@@ -99,7 +119,8 @@ internal sealed class TurnInWindow : LImGui.LWindow
                     EffectiveLimit = CalculateEffectiveLimit(
                         x.Item.ItemId,
                         x.Item.Limit <= 0 ? uint.MaxValue : (uint)x.Item.Limit,
-                        x.Reward.StackSize),
+                        x.Reward.StackSize,
+                        x.Reward.InventoryLimit),
                     SealCost = x.Reward.SealCost,
                     Tier = x.Reward.Tier,
                     SubCategory = x.Reward.SubCategory,
@@ -153,11 +174,13 @@ internal sealed class TurnInWindow : LImGui.LWindow
                 InventoryManager* inventoryManager = InventoryManager.Instance();
                 if (inventoryManager->GetInventoryItemCount(ItemIds.PrioritySealAllowance) > 0)
                 {
-                    ImGui.BeginDisabled(_condition[ConditionFlag.OccupiedInQuestEvent] || _condition[ConditionFlag.Casting]);
+                    ImGui.BeginDisabled(_condition[ConditionFlag.OccupiedInQuestEvent] ||
+                                        _condition[ConditionFlag.Casting]);
                     if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.Bolt, "Use Priority Seal Allowance (15%)"))
                     {
                         AgentInventoryContext.Instance()->UseItem(ItemIds.PrioritySealAllowance);
                     }
+
                     ImGui.EndDisabled();
                 }
             }
@@ -180,9 +203,9 @@ internal sealed class TurnInWindow : LImGui.LWindow
         var itemsWrapper = ItemsWrapper;
         ImGui.Text($"Items to buy ({itemsWrapper.Name}):");
 
-        List<(uint ItemId, string Name, IReadOnlyList<GrandCompany> GrandCompanies, uint Rank, ushort IconId)> comboValues = new()
+        List<(GcRewardItem Item, string Name)> comboValues = new()
         {
-            (GcRewardItem.None.ItemId, GcRewardItem.None.Name, new List<GrandCompany>(), GcRewardItem.None.RequiredRank, GcRewardItem.None.IconId)
+            (GcRewardItem.None, GcRewardItem.None.Name),
         };
         foreach (uint itemId in _configuration.ItemsAvailableForPurchase)
         {
@@ -191,7 +214,7 @@ internal sealed class TurnInWindow : LImGui.LWindow
             string itemName = gcReward.Name;
             if (itemCount > 0)
                 itemName += $" ({itemCount:N0})";
-            comboValues.Add((itemId, itemName, gcReward.GrandCompanies, gcReward.RequiredRank, gcReward.IconId));
+            comboValues.Add((gcReward, itemName));
         }
 
         if (itemsWrapper.GetItemsToPurchase().Count == 0)
@@ -215,11 +238,12 @@ internal sealed class TurnInWindow : LImGui.LWindow
                 item.Enabled = enabled;
                 itemsWrapper.Save();
             }
+
             ImGui.PopID();
 
             ImGui.SameLine(0, 3);
             ImGui.BeginDisabled(!enabled);
-            int comboValueIndex = comboValues.FindIndex(x => x.ItemId == item.ItemId);
+            int comboValueIndex = comboValues.FindIndex(x => x.Item.ItemId == item.ItemId);
             if (comboValueIndex < 0)
             {
                 item.ItemId = 0;
@@ -229,7 +253,8 @@ internal sealed class TurnInWindow : LImGui.LWindow
                 comboValueIndex = 0;
             }
 
-            IDalamudTextureWrap? icon = _iconCache.GetIcon(comboValues[comboValueIndex].IconId);
+            var comboItem = comboValues[comboValueIndex];
+            IDalamudTextureWrap? icon = _iconCache.GetIcon(comboItem.Item.IconId);
             if (icon != null)
             {
                 ImGui.Image(icon.ImGuiHandle, new Vector2(23, 23));
@@ -238,7 +263,8 @@ internal sealed class TurnInWindow : LImGui.LWindow
 
             if (ImGui.Combo("", ref comboValueIndex, comboValues.Select(x => x.Name).ToArray(), comboValues.Count))
             {
-                item.ItemId = comboValues[comboValueIndex].ItemId;
+                comboItem = comboValues[comboValueIndex];
+                item.ItemId = comboItem.Item.ItemId;
                 itemsWrapper.Save();
             }
 
@@ -277,16 +303,11 @@ internal sealed class TurnInWindow : LImGui.LWindow
                 if (comboValueIndex > 0)
                 {
                     ImGui.SetNextItemWidth(ImGuiHelpers.GlobalScale * 130);
-                    int limit = item.Limit;
-                    if (item.ItemId == ItemIds.Venture)
-                        limit = Math.Min(limit, 65_000);
-
-                    if (ImGui.InputInt("Maximum items to buy", ref limit, 50, 500))
+                    int limit = Math.Min(item.Limit, (int)comboItem.Item.InventoryLimit);
+                    int stepSize = comboItem.Item.StackSize < 99 ? 1 : 50;
+                    if (ImGui.InputInt("Maximum items to buy", ref limit, stepSize, stepSize * 10))
                     {
-                        item.Limit = Math.Max(0, limit);
-                        if (item.ItemId == ItemIds.Venture)
-                            item.Limit = Math.Min(item.Limit, 65_000);
-
+                        item.Limit = Math.Min(Math.Max(0, limit), (int)comboItem.Item.InventoryLimit);
                         itemsWrapper.Save();
                     }
                 }
@@ -298,13 +319,12 @@ internal sealed class TurnInWindow : LImGui.LWindow
 
                 if (comboValueIndex > 0)
                 {
-                    var comboItem = comboValues[comboValueIndex];
-                    if (!comboItem.GrandCompanies.Contains(grandCompany))
+                    if (!comboItem.Item.GrandCompanies.Contains(grandCompany))
                     {
                         ImGui.TextColored(ImGuiColors.DalamudRed,
                             "This item will be skipped, as you are in the wrong Grand Company.");
                     }
-                    else if (comboItem.Rank > _plugin.GetGrandCompanyRank())
+                    else if (comboItem.Item.RequiredRank > _plugin.GetGrandCompanyRank())
                     {
                         ImGui.TextColored(ImGuiColors.DalamudRed,
                             "This item will be skipped, your rank isn't high enough to buy it.");
@@ -347,7 +367,6 @@ internal sealed class TurnInWindow : LImGui.LWindow
                             itemsWrapper.Add(new Configuration.PurchasePriority { ItemId = itemId, Limit = 0 });
                             itemsWrapper.Save();
                             ImGui.CloseCurrentPopup();
-
                         }
                     }
                 }
@@ -357,17 +376,15 @@ internal sealed class TurnInWindow : LImGui.LWindow
         }
     }
 
-    private unsafe uint CalculateEffectiveLimit(uint itemId, uint limit, uint stackSize)
+    private unsafe uint CalculateEffectiveLimit(uint itemId, uint limit, uint stackSize, uint inventoryLimit)
     {
         if (itemId == ItemIds.Venture)
-            return Math.Min(limit, 65_000);
+            return Math.Min(limit, inventoryLimit);
         else
         {
             uint slotsThatCanBeUsed = 0;
             InventoryManager* inventoryManager = InventoryManager.Instance();
-            for (InventoryType inventoryType = InventoryType.Inventory1;
-                 inventoryType <= InventoryType.Inventory4;
-                 ++inventoryType)
+            foreach (var inventoryType in _inventoryTypes)
             {
                 var container = inventoryManager->GetInventoryContainer(inventoryType);
                 for (int i = 0; i < container->Size; ++i)
@@ -380,7 +397,7 @@ internal sealed class TurnInWindow : LImGui.LWindow
                 }
             }
 
-            return Math.Min(limit, slotsThatCanBeUsed * stackSize);
+            return Math.Min(Math.Min(limit, slotsThatCanBeUsed * stackSize), inventoryLimit);
         }
     }
 

@@ -17,6 +17,7 @@ internal sealed class GcRewardItem : IEquatable<GcRewardItem>
         RequiredRank = 0,
         StackSize = 0,
         SealCost = 100_000,
+        InventoryLimit = int.MaxValue,
     };
 
     public required uint ItemId { get; init; }
@@ -28,6 +29,7 @@ internal sealed class GcRewardItem : IEquatable<GcRewardItem>
     public required uint RequiredRank { get; init; }
     public required uint StackSize { get; init; }
     public required uint SealCost { get; init; }
+    public required uint InventoryLimit { get; init; }
 
     public bool IsValid() => ItemId > 0 && GrandCompanies.Count > 0;
     public bool Limited => GrandCompanies.Count < 3;

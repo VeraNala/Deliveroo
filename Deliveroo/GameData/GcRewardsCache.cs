@@ -33,6 +33,9 @@ internal sealed class GcRewardsCache
                     RequiredRank = item.RequiredGrandCompanyRank.Row,
                     item.Item!.Value.StackSize,
                     SealCost = item.CostGCSeals,
+                    InventoryLimit = item.Item.Value!.IsUnique ? 1
+                        : item.Item.Row == ItemIds.Venture ? item.Item.Value!.StackSize
+                        : int.MaxValue,
                 };
             })
             .Select(item => new GcRewardItem
@@ -48,6 +51,7 @@ internal sealed class GcRewardsCache
                 GrandCompanies = item.Select(x => categories[x.RowId].GrandCompany)
                     .ToList()
                     .AsReadOnly(),
+                InventoryLimit = item.Key.InventoryLimit,
             })
             .ToList()
             .AsReadOnly();
