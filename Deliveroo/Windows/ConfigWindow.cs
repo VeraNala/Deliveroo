@@ -170,7 +170,9 @@ internal sealed class ConfigWindow : LImGui.LWindow
                         ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 3);
                     }
 
-                    bool addThis = ImGui.Selectable($"{item.Name}{(item.Limited ? $" {SeIconChar.Hyadelyn.ToIconString()}" : "")}##SelectVenture{item.IconId}");
+                    bool addThis =
+                        ImGui.Selectable(
+                            $"{item.Name}{(item.Limited ? $" {SeIconChar.Hyadelyn.ToIconString()}" : "")}##SelectVenture{item.IconId}");
                     if (addThis || addFirst)
                     {
                         _configuration.ItemsAvailableForPurchase.Add(item.ItemId);
@@ -244,7 +246,8 @@ internal sealed class ConfigWindow : LImGui.LWindow
                     }
 
                     ImGui.SameLine();
-                    ImGuiComponents.HelpMarker("The default filter for all characters is 'Hide Gear Set Items', but you may want to override this to hide all Armoury Chest items (regardless of whether they're part of a gear set) e.g. for your main character.");
+                    ImGuiComponents.HelpMarker(
+                        "The default filter for all characters is 'Hide Gear Set Items', but you may want to override this to hide all Armoury Chest items (regardless of whether they're part of a gear set) e.g. for your main character.");
 
                     bool ignoreMinimumSealsToKeep = charConfiguration.IgnoreMinimumSealsToKeep;
                     if (ImGui.Checkbox("Ignore 'Minimum Seals to keep' setting", ref ignoreMinimumSealsToKeep))
@@ -254,7 +257,8 @@ internal sealed class ConfigWindow : LImGui.LWindow
                     }
 
                     ImGui.SameLine();
-                    ImGuiComponents.HelpMarker("When enabled, all GC seals will be spent. This is effectively the same as setting 'Minimum Seals to keep' to 0.");
+                    ImGuiComponents.HelpMarker(
+                        "When enabled, all GC seals will be spent. This is effectively the same as setting 'Minimum Seals to keep' to 0.");
 
                     ImGui.EndDisabled();
                     ImGui.Spacing();
@@ -309,7 +313,8 @@ internal sealed class ConfigWindow : LImGui.LWindow
             int reservedSealCount = _configuration.ReservedSealCount;
             if (ImGui.InputInt("Minimum Seals to keep (e.g. for Squadron Missions)", ref reservedSealCount, 1000))
             {
-                _configuration.ReservedSealCount = Math.Max(0, Math.Min((int)_plugin.GetMaxSealCap(), reservedSealCount));
+                _configuration.ReservedSealCount =
+                    Math.Max(0, Math.Min((int)_plugin.GetMaxSealCap(), reservedSealCount));
                 Save();
             }
 
@@ -328,11 +333,14 @@ internal sealed class ConfigWindow : LImGui.LWindow
                 int reservedSealCountAtMaxRank = _configuration.ReservedSealCountAtMaxRank;
                 if (ImGui.InputInt("Minimum seals to keep at max rank", ref reservedSealCountAtMaxRank))
                 {
-                    _configuration.ReservedSealCountAtMaxRank = Math.Max(0, Math.Min((int)_plugin.GetMaxSealCap(), reservedSealCountAtMaxRank));
+                    _configuration.ReservedSealCountAtMaxRank = Math.Max(0,
+                        Math.Min((int)_plugin.GetMaxSealCap(), reservedSealCountAtMaxRank));
                     Save();
                 }
+
                 ImGui.Unindent();
             }
+
             ImGui.EndDisabled();
 
             ImGui.SetNextItemWidth(ImGuiHelpers.GlobalScale * 120);
@@ -340,10 +348,21 @@ internal sealed class ConfigWindow : LImGui.LWindow
                 .Select(x => x == 1 ? (0, "---") : (x, $"Rank {x}"))
                 .ToList();
             int pauseAtRank = Math.Max(rankUpComboValues.FindIndex(x => x.Rank == _configuration.PauseAtRank), 0);
-            if (ImGui.Combo("Pause when reaching selected FC Rank", ref pauseAtRank, rankUpComboValues.Select(x => x.Name).ToArray(),
+            if (ImGui.Combo("Pause when reaching selected FC Rank", ref pauseAtRank,
+                    rankUpComboValues.Select(x => x.Name).ToArray(),
                     rankUpComboValues.Count))
             {
                 _configuration.PauseAtRank = rankUpComboValues[pauseAtRank].Rank;
+                Save();
+            }
+
+            ImGui.SetNextItemWidth(ImGuiHelpers.GlobalScale * 120);
+            string[] behaviorOnOtherWorldNames = { "---", "Show Warning", "Disable Turn-In" };
+            int behaviorOnOtherWorld = (int)_configuration.BehaviorOnOtherWorld;
+            if (ImGui.Combo("Behavior when not on Home World", ref behaviorOnOtherWorld,
+                    behaviorOnOtherWorldNames, behaviorOnOtherWorldNames.Length))
+            {
+                _configuration.BehaviorOnOtherWorld = (Configuration.EBehaviorOnOtherWorld)behaviorOnOtherWorld;
                 Save();
             }
 

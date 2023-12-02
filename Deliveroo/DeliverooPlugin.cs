@@ -82,7 +82,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         _iconCache = new IconCache(textureProvider);
         _configWindow = new ConfigWindow(_pluginInterface, this, _configuration, _gcRewardsCache, _clientState, _pluginLog, _iconCache);
         _windowSystem.AddWindow(_configWindow);
-        _turnInWindow = new TurnInWindow(this, _pluginInterface, _configuration, _condition, _gcRewardsCache, _configWindow, _iconCache);
+        _turnInWindow = new TurnInWindow(this, _pluginInterface, _configuration, _condition, _clientState, _gcRewardsCache, _configWindow, _iconCache);
         _windowSystem.AddWindow(_turnInWindow);
         _sealCaps = dataManager.GetExcelSheet<GrandCompanyRank>()!.Where(x => x.RowId > 0)
             .ToDictionary(x => x.RowId, x => x.MaxSeals);

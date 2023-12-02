@@ -15,6 +15,7 @@ internal sealed class Configuration : IPluginConfiguration
     public bool ReserveDifferentSealCountAtMaxRank { get; set; }
     public int ReservedSealCountAtMaxRank { get; set; }
     public int PauseAtRank { get; set; }
+    public EBehaviorOnOtherWorld BehaviorOnOtherWorld { get; set; } = EBehaviorOnOtherWorld.Warning;
 
     /// <summary>
     /// A config-only setting, not exposed in the UI.
@@ -39,5 +40,12 @@ internal sealed class Configuration : IPluginConfiguration
         }
 
         return false;
+    }
+
+    public enum EBehaviorOnOtherWorld
+    {
+        None,
+        Warning,
+        DisableTurnIn,
     }
 }

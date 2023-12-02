@@ -44,17 +44,20 @@ internal sealed class TurnInWindow : LImGui.LWindow
     private readonly DalamudPluginInterface _pluginInterface;
     private readonly Configuration _configuration;
     private readonly ICondition _condition;
+    private readonly IClientState _clientState;
     private readonly GcRewardsCache _gcRewardsCache;
     private readonly IconCache _iconCache;
 
     public TurnInWindow(DeliverooPlugin plugin, DalamudPluginInterface pluginInterface, Configuration configuration,
-        ICondition condition, GcRewardsCache gcRewardsCache, ConfigWindow configWindow, IconCache iconCache)
+        ICondition condition, IClientState clientState, GcRewardsCache gcRewardsCache, ConfigWindow configWindow,
+        IconCache iconCache)
         : base("GC Delivery###DeliverooTurnIn")
     {
         _plugin = plugin;
         _pluginInterface = pluginInterface;
         _configuration = configuration;
         _condition = condition;
+        _clientState = clientState;
         _gcRewardsCache = gcRewardsCache;
         _iconCache = iconCache;
 
@@ -92,6 +95,10 @@ internal sealed class TurnInWindow : LImGui.LWindow
 
     private bool UseCharacterSpecificItemsToPurchase =>
         _plugin.CharacterConfiguration is { OverrideItemsToPurchase: true };
+
+    private bool IsOnHomeWorld =>
+        _clientState.LocalPlayer == null ||
+        _clientState.LocalPlayer.HomeWorld.Id == _clientState.LocalPlayer.CurrentWorld.Id;
 
     private IItemsToPurchase ItemsWrapper => UseCharacterSpecificItemsToPurchase
         ? new CharacterSpecificItemsToPurchase(_plugin.CharacterConfiguration!, _pluginInterface)
@@ -146,6 +153,12 @@ internal sealed class TurnInWindow : LImGui.LWindow
             ImGui.TextColored(ImGuiColors.DalamudRed, "You do not have the required rank for Expert Delivery.");
             return;
         }
+        else if (_configuration.BehaviorOnOtherWorld == Configuration.EBehaviorOnOtherWorld.DisableTurnIn && !IsOnHomeWorld)
+        {
+            State = false;
+            ImGui.TextColored(ImGuiColors.DalamudRed, "You are not on your home world.");
+            return;
+        }
 
         bool state = State;
         if (ImGui.Checkbox("Handle GC turn ins/exchange automatically", ref state))
@@ -160,6 +173,12 @@ internal sealed class TurnInWindow : LImGui.LWindow
         }
         else
         {
+            if (_configuration.BehaviorOnOtherWorld == Configuration.EBehaviorOnOtherWorld.Warning && !IsOnHomeWorld)
+            {
+                ImGui.TextColored(ImGuiColors.DalamudRed,
+                    "Turn-In disabled, you are not on your home world and will not earn FC points.");
+            }
+
             if (Multiplier == 1m)
             {
                 ImGui.TextColored(ImGuiColors.DalamudYellow, "You do not have an active seal buff.");
