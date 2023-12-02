@@ -21,8 +21,9 @@ internal sealed class GameStrings
             ?? throw new Exception($"Unable to resolve {nameof(ClosePersonnelOfficerTalk)}");
         ExchangeItems = dataManager.GetRegex<Addon>(3290, addon => addon.Text, pluginLog)
                         ?? throw new Exception($"Unable to resolve {nameof(ExchangeItems)}");
-        TradeHighQualityItem = dataManager.GetString<Addon>(102434, addon => addon.Text, pluginLog)
-                               ?? throw new Exception($"Unable to resolve {nameof(TradeHighQualityItem)}");
+        TradeHighQualityItem =
+            dataManager.GetString<Addon>(102434, addon => addon.Text, pluginLog)?.ReplaceLineEndings("")
+            ?? throw new Exception($"Unable to resolve {nameof(TradeHighQualityItem)}");
 
         var rankUpFc = dataManager.GetExcelSheet<LogMessage>()!.GetRow(3123)!;
         RankUpFc = rankUpFc.GetRegex(logMessage => logMessage.Text, pluginLog)
