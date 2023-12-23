@@ -1,5 +1,7 @@
 ﻿using System;
 using Dalamud.Game.ClientState.Objects.Types;
+using Dalamud.Game.Text.SeStringHandling;
+using Dalamud.Game.Text.SeStringHandling.Payloads;
 using Deliveroo.GameData;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using LLib.GameUI;
@@ -144,7 +146,9 @@ partial class DeliverooPlugin
                     return false;
                 }
 
-                _chatGui.Print($"Buying {toBuy}x {item.Name}...");
+                _chatGui.Print(new SeString(new TextPayload($"Buying {toBuy}x "))
+                    .Append(SeString.CreateItemLink(item.ItemId))
+                    .Append(new TextPayload("...")));
                 var selectReward = stackalloc AtkValue[]
                 {
                     new() { Type = ValueType.Int, Int = 0 },
