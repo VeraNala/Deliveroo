@@ -98,7 +98,7 @@ partial class DeliverooPlugin
             int currentListSize = addonGc->ExpertDeliveryList->ListLength;
             if (addonGc->ListEmptyTextNode->AtkResNode.IsVisible || currentListSize == 0)
             {
-                _pluginLog.Information($"No items to turn in {addonGc->ListEmptyTextNode->AtkResNode.IsVisible}, {currentListSize})");
+                _pluginLog.Information($"No items to turn in ({addonGc->ListEmptyTextNode->AtkResNode.IsVisible}, {currentListSize})");
                 CurrentStage = Stage.CloseGcSupplyThenStop;
                 addon->FireCallbackInt(-1);
                 return;

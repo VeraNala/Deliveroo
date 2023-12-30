@@ -176,7 +176,15 @@ partial class DeliverooPlugin
             LAddon.IsAddonReady(addonExchange))
         {
             addonExchange->FireCallbackInt(-1);
-            CurrentStage = Stage.TargetPersonnelOfficer;
+
+            // If we just turned in the final item, there's no need to talk to the personnel officer again
+            if (_lastTurnInListSize == 1)
+            {
+                _turnInWindow.State = false;
+                CurrentStage = Stage.RequestStop;
+            }
+            else
+                CurrentStage = Stage.TargetPersonnelOfficer;
         }
     }
 }
