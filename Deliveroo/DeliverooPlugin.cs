@@ -237,6 +237,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
             {
                 CurrentStage = Stage.TargetPersonnelOfficer;
                 _itemsToPurchaseNow = _turnInWindow.SelectedItems;
+                ResetTurnInErrorHandling();
                 if (_itemsToPurchaseNow.Count > 0)
                 {
                     _pluginLog.Information("Items to purchase:");
