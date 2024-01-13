@@ -1,11 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Dalamud.Game.ClientState.Objects.Types;
+using Dalamud.Game.Text.SeStringHandling;
 using Deliveroo.GameData;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using LLib.GameUI;
+using Lumina.Text.Payloads;
 using ValueType = FFXIVClientStructs.FFXIV.Component.GUI.ValueType;
 
 namespace Deliveroo;
@@ -78,7 +81,8 @@ partial class DeliverooPlugin
                 return;
 
             var addonGc = (AddonGrandCompanySupplyList*)addon;
-            if (addonGc->ExpertDeliveryList == null || !addonGc->ExpertDeliveryList->AtkComponentBase.OwnerNode->AtkResNode.IsVisible)
+            if (addonGc->ExpertDeliveryList == null ||
+                !addonGc->ExpertDeliveryList->AtkComponentBase.OwnerNode->AtkResNode.IsVisible)
                 return;
 
             if (addonGc->SelectedTab != 2)
@@ -98,7 +102,8 @@ partial class DeliverooPlugin
             int currentListSize = addonGc->ExpertDeliveryList->ListLength;
             if (addonGc->ListEmptyTextNode->AtkResNode.IsVisible || currentListSize == 0)
             {
-                _pluginLog.Information($"No items to turn in ({addonGc->ListEmptyTextNode->AtkResNode.IsVisible}, {currentListSize})");
+                _pluginLog.Information(
+                    $"No items to turn in ({addonGc->ListEmptyTextNode->AtkResNode.IsVisible}, {currentListSize})");
                 CurrentStage = Stage.CloseGcSupplyThenStop;
                 addon->FireCallbackInt(-1);
                 return;
@@ -115,7 +120,8 @@ partial class DeliverooPlugin
             if (currentListSize >= _lastTurnInListSize)
             {
                 _turnInErrors++;
-                _pluginLog.Information($"Trying to refresh expert delivery list manually ({_turnInErrors}, old list size = {_lastTurnInListSize}, new list size = {currentListSize})...");
+                _pluginLog.Information(
+                    $"Trying to refresh expert delivery list manually ({_turnInErrors}, old list size = {_lastTurnInListSize}, new list size = {currentListSize})...");
                 addon->FireCallbackInt(2);
 
                 _continueAt = DateTime.Now.AddSeconds(0.1);
@@ -176,7 +182,20 @@ partial class DeliverooPlugin
         if (_gameGui.TryGetAddonByName<AddonGrandCompanySupplyReward>("GrandCompanySupplyReward",
                 out var addonSupplyReward) && LAddon.IsAddonReady(&addonSupplyReward->AtkUnitBase))
         {
-            _pluginLog.Information($"Turning in '{addonSupplyReward->AtkUnitBase.AtkValues[4].ReadAtkString()}'");
+            string? itemName = addonSupplyReward->AtkUnitBase.AtkValues[4].ReadAtkString();
+            if (itemName != null && _itemCache.GetItemIdFromItemName(itemName)
+                    .Any(itemId => DisabledTurnInItems.Contains(itemId)))
+            {
+                _chatGui.Print(new SeStringBuilder().Append("Won't turn in ")
+                    .AddItemLink(_itemCache.GetItemIdFromItemName(itemName).First())
+                    .Append(".")
+                    .Build());
+
+                addonSupplyReward->AtkUnitBase.FireCallbackInt(1);
+                return;
+            }
+
+            _pluginLog.Information($"Turning in '{itemName}'");
 
             addonSupplyReward->AtkUnitBase.FireCallbackInt(0);
             _continueAt = DateTime.Now.AddSeconds(0.58);

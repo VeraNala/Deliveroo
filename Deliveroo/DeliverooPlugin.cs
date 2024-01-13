@@ -25,6 +25,7 @@ namespace Deliveroo;
 public sealed partial class DeliverooPlugin : IDalamudPlugin
 {
     private readonly WindowSystem _windowSystem = new(typeof(DeliverooPlugin).AssemblyQualifiedName);
+    private readonly IReadOnlyList<uint> DisabledTurnInItems = new List<uint> { 2820 }.AsReadOnly();
 
     private readonly DalamudPluginInterface _pluginInterface;
     private readonly IChatGui _chatGui;
@@ -48,6 +49,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
     private readonly GcRewardsCache _gcRewardsCache;
 
     private readonly IconCache _iconCache;
+    private readonly ItemCache _itemCache;
     private readonly ConfigWindow _configWindow;
     private readonly TurnInWindow _turnInWindow;
     private readonly IReadOnlyDictionary<uint, uint> _sealCaps;
@@ -80,6 +82,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         _configuration = (Configuration?)_pluginInterface.GetPluginConfig() ?? new Configuration();
         _gcRewardsCache = new GcRewardsCache(dataManager);
         _iconCache = new IconCache(textureProvider);
+        _itemCache = new ItemCache(dataManager);
         _configWindow = new ConfigWindow(_pluginInterface, this, _configuration, _gcRewardsCache, _clientState, _pluginLog, _iconCache);
         _windowSystem.AddWindow(_configWindow);
         _turnInWindow = new TurnInWindow(this, _pluginInterface, _configuration, _condition, _clientState, _gcRewardsCache, _configWindow, _iconCache);
