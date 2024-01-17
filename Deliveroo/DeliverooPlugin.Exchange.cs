@@ -30,11 +30,15 @@ partial class DeliverooPlugin
     {
         foreach (PurchaseItemRequest request in _itemsToPurchaseNow)
         {
-            int offset = 0;
+            int toBuy = 0;
             if (request == previousRequest)
-                offset = (int)request.StackSize;
+            {
+                toBuy = (int)request.StackSize;
+                if (request.ItemId != ItemIds.Venture && !_configuration.IgnoreCertainLimitations)
+                    toBuy = Math.Min(toBuy, 99);
+            }
 
-            if (GetItemCount(request.ItemId) + offset < request.EffectiveLimit)
+            if (GetItemCount(request.ItemId) + toBuy < request.EffectiveLimit)
                 return request;
         }
 
