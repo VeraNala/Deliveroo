@@ -27,8 +27,11 @@ partial class DeliverooPlugin
                 return;
             }
 
-            _pluginLog.Information($"Selecting 'yes' ({text})");
+            _pluginLog.Information($"Selecting 'yes' ({text}) (callback = {item.OnPurchase}, qty = {item.TemporaryPurchaseQuantity})");
             addonSelectYesNo->AtkUnitBase.FireCallbackInt(0);
+
+            item.OnPurchase?.Invoke((int)item.TemporaryPurchaseQuantity);
+            item.TemporaryPurchaseQuantity = 0;
 
             var nextItem = GetNextItemToPurchase(item);
             if (nextItem != null && GetCurrentSealCount() >= EffectiveReservedSealCount + nextItem.SealCost)

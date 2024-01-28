@@ -20,7 +20,7 @@ namespace Deliveroo.Windows;
 
 internal sealed class TurnInWindow : LImGui.LWindow
 {
-    private readonly IReadOnlyList<InventoryType> _inventoryTypes = new[]
+    private static readonly IReadOnlyList<InventoryType> InventoryTypes = new[]
     {
         InventoryType.Inventory1,
         InventoryType.Inventory2,
@@ -39,6 +39,8 @@ internal sealed class TurnInWindow : LImGui.LWindow
         InventoryType.ArmoryRings,
         InventoryType.EquippedItems
     }.AsReadOnly();
+
+    private static readonly string[] StockingTypeLabels = { "Purchase Once", "Keep in Stock" };
 
     private readonly DeliverooPlugin _plugin;
     private readonly DalamudPluginInterface _pluginInterface;
@@ -116,22 +118,38 @@ internal sealed class TurnInWindow : LImGui.LWindow
             return ItemsWrapper.GetItemsToPurchase()
                 .Where(x => x.ItemId != GcRewardItem.None.ItemId)
                 .Where(x => x.Enabled)
+                .Where(x => x.Type == Configuration.PurchaseType.KeepStocked || x.Limit > 0)
                 .Select(x => new { Item = x, Reward = _gcRewardsCache.GetReward(x.ItemId) })
                 .Where(x => x.Reward.GrandCompanies.Contains(grandCompany))
                 .Where(x => x.Reward.RequiredRank <= rank)
-                .Select(x => new PurchaseItemRequest
+                .Select(x =>
                 {
-                    ItemId = x.Item.ItemId,
-                    Name = x.Reward.Name,
-                    EffectiveLimit = CalculateEffectiveLimit(
-                        x.Item.ItemId,
-                        x.Item.Limit <= 0 ? uint.MaxValue : (uint)x.Item.Limit,
-                        x.Reward.StackSize,
-                        x.Reward.InventoryLimit),
-                    SealCost = x.Reward.SealCost,
-                    Tier = x.Reward.Tier,
-                    SubCategory = x.Reward.SubCategory,
-                    StackSize = x.Reward.StackSize,
+                    var request = new PurchaseItemRequest
+                    {
+                        ItemId = x.Item.ItemId,
+                        Name = x.Reward.Name,
+                        EffectiveLimit = CalculateEffectiveLimit(
+                            x.Item.ItemId,
+                            x.Item.Limit <= 0 ? uint.MaxValue : (uint)x.Item.Limit,
+                            x.Reward.StackSize,
+                            x.Reward.InventoryLimit),
+                        SealCost = x.Reward.SealCost,
+                        Tier = x.Reward.Tier,
+                        SubCategory = x.Reward.SubCategory,
+                        StackSize = x.Reward.StackSize,
+                        Type = x.Item.Type,
+                    };
+                    if (x.Item.Type == Configuration.PurchaseType.PurchaseOneTime)
+                    {
+                        request.OnPurchase = qty =>
+                        {
+                            request.EffectiveLimit -= (uint)qty;
+                            x.Item.Limit -= qty;
+                            ItemsWrapper.Save();
+                        };
+                    }
+
+                    return request;
                 })
                 .ToList();
         }
@@ -153,7 +171,8 @@ internal sealed class TurnInWindow : LImGui.LWindow
             ImGui.TextColored(ImGuiColors.DalamudRed, "You do not have the required rank for Expert Delivery.");
             return;
         }
-        else if (_configuration.BehaviorOnOtherWorld == Configuration.EBehaviorOnOtherWorld.DisableTurnIn && !IsOnHomeWorld)
+        else if (_configuration.BehaviorOnOtherWorld == Configuration.EBehaviorOnOtherWorld.DisableTurnIn &&
+                 !IsOnHomeWorld)
         {
             State = false;
             ImGui.TextColored(ImGuiColors.DalamudRed, "You are not on your home world.");
@@ -248,17 +267,40 @@ internal sealed class TurnInWindow : LImGui.LWindow
         for (int i = 0; i < itemsWrapper.GetItemsToPurchase().Count; ++i)
         {
             ImGui.PushID($"ItemToBuy{i}");
-            var item = itemsWrapper.GetItemsToPurchase()[i];
+            Configuration.PurchasePriority item = itemsWrapper.GetItemsToPurchase()[i];
 
+            float indentX = ImGui.GetCursorPosX();
             bool enabled = item.Enabled;
-            ImGui.PushID($"Enable{i}");
-            if (ImGui.Checkbox("", ref enabled))
+            int popColors = 0;
+            if (!enabled)
             {
-                item.Enabled = enabled;
-                itemsWrapper.Save();
+                ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(1f, 0.5f, 0.35f, 1f));
+                popColors++;
             }
 
-            ImGui.PopID();
+            if (ImGui.Button($"{item.GetIcon()}"))
+                ImGui.OpenPopup($"Configure{i}");
+
+            ImGui.PopStyleColor(popColors);
+
+            if (ImGui.BeginPopup($"Configure{i}"))
+            {
+                if (ImGui.Checkbox($"Enabled##Enabled{i}", ref enabled))
+                {
+                    item.Enabled = enabled;
+                    itemsWrapper.Save();
+                }
+
+                ImGui.SetNextItemWidth(150 * ImGuiHelpers.GlobalScale);
+                int type = (int)item.Type;
+                if (ImGui.Combo($"##Type{i}", ref type, StockingTypeLabels, StockingTypeLabels.Length))
+                {
+                    item.Type = (Configuration.PurchaseType)type;
+                    itemsWrapper.Save();
+                }
+
+                ImGui.EndPopup();
+            }
 
             ImGui.SameLine(0, 3);
             ImGui.BeginDisabled(!enabled);
@@ -279,6 +321,8 @@ internal sealed class TurnInWindow : LImGui.LWindow
                 ImGui.Image(icon.ImGuiHandle, new Vector2(23, 23));
                 ImGui.SameLine(0, 3);
             }
+
+            indentX = ImGui.GetCursorPosX() - indentX;
 
             if (ImGui.Combo("", ref comboValueIndex, comboValues.Select(x => x.Name).ToArray(), comboValues.Count))
             {
@@ -318,13 +362,16 @@ internal sealed class TurnInWindow : LImGui.LWindow
 
             if (enabled)
             {
-                ImGui.Indent(52);
+                ImGui.Indent(indentX);
                 if (comboValueIndex > 0)
                 {
                     ImGui.SetNextItemWidth(ImGuiHelpers.GlobalScale * 130);
                     int limit = Math.Min(item.Limit, (int)comboItem.Item.InventoryLimit);
                     int stepSize = comboItem.Item.StackSize < 99 ? 1 : 50;
-                    if (ImGui.InputInt("Maximum items to buy", ref limit, stepSize, stepSize * 10))
+                    string label = item.Type == Configuration.PurchaseType.KeepStocked
+                        ? "Maximum items to buy"
+                        : "Remaining items to buy";
+                    if (ImGui.InputInt(label, ref limit, stepSize, stepSize * 10))
                     {
                         item.Limit = Math.Min(Math.Max(0, limit), (int)comboItem.Item.InventoryLimit);
                         itemsWrapper.Save();
@@ -350,7 +397,7 @@ internal sealed class TurnInWindow : LImGui.LWindow
                     }
                 }
 
-                ImGui.Unindent(52);
+                ImGui.Unindent(indentX);
             }
 
             ImGui.PopID();
@@ -403,7 +450,7 @@ internal sealed class TurnInWindow : LImGui.LWindow
         {
             uint slotsThatCanBeUsed = 0;
             InventoryManager* inventoryManager = InventoryManager.Instance();
-            foreach (var inventoryType in _inventoryTypes)
+            foreach (var inventoryType in InventoryTypes)
             {
                 var container = inventoryManager->GetInventoryContainer(inventoryType);
                 for (int i = 0; i < container->Size; ++i)

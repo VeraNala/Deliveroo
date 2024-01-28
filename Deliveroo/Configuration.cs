@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using Dalamud.Configuration;
+using Dalamud.Game.Text;
 using Deliveroo.GameData;
 
 namespace Deliveroo;
@@ -29,6 +30,23 @@ internal sealed class Configuration : IPluginConfiguration
         public uint ItemId { get; set; }
         public int Limit { get; set; }
         public bool Enabled { get; set; } = true;
+        public PurchaseType Type { get; set; } = PurchaseType.KeepStocked;
+
+        public string GetIcon()
+        {
+            return Type switch
+            {
+                PurchaseType.PurchaseOneTime => SeIconChar.BoxedNumber1.ToIconString(),
+                PurchaseType.KeepStocked => SeIconChar.Circle.ToIconString(),
+                _ => SeIconChar.BoxedQuestionMark.ToIconString(),
+            };
+        }
+    }
+
+    public enum PurchaseType
+    {
+        PurchaseOneTime,
+        KeepStocked,
     }
 
     public bool AddVentureIfNoItemToPurchaseSelected()

@@ -38,8 +38,16 @@ partial class DeliverooPlugin
                     toBuy = Math.Min(toBuy, 99);
             }
 
-            if (GetItemCount(request.ItemId) + toBuy < request.EffectiveLimit)
-                return request;
+            if (request.Type == Configuration.PurchaseType.KeepStocked)
+            {
+                if (GetItemCount(request.ItemId) + toBuy < request.EffectiveLimit)
+                    return request;
+            }
+            else
+            {
+                if (toBuy < request.EffectiveLimit)
+                    return request;
+            }
         }
 
         return null;
@@ -139,7 +147,10 @@ partial class DeliverooPlugin
             {
                 _pluginLog.Information($"Selecting item {itemId}, {i}");
                 long toBuy = (GetCurrentSealCount() - EffectiveReservedSealCount) / item.SealCost;
-                toBuy = Math.Min(toBuy, item.EffectiveLimit - GetItemCount(item.ItemId));
+                if (item.Type == Configuration.PurchaseType.KeepStocked)
+                    toBuy = Math.Min(toBuy, item.EffectiveLimit - GetItemCount(item.ItemId));
+                else
+                    toBuy = Math.Min(toBuy, item.EffectiveLimit);
 
                 if (item.ItemId != ItemIds.Venture && !_configuration.IgnoreCertainLimitations)
                     toBuy = Math.Min(toBuy, 99);
@@ -150,6 +161,7 @@ partial class DeliverooPlugin
                     return false;
                 }
 
+                item.TemporaryPurchaseQuantity = toBuy;
                 _chatGui.Print(new SeString(new TextPayload($"Buying {toBuy}x "))
                     .Append(SeString.CreateItemLink(item.ItemId))
                     .Append(new TextPayload("...")));
