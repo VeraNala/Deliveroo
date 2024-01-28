@@ -97,10 +97,13 @@ partial class DeliverooPlugin
 
     public uint GetMaxSealCap() => _sealCaps[11];
 
-    public unsafe int GetItemCount(uint itemId)
+    public unsafe int GetItemCount(uint itemId, bool checkRetainerInventory)
     {
         InventoryManager* inventoryManager = InventoryManager.Instance();
-        return inventoryManager->GetInventoryItemCount(itemId, false, false, false);
+        int count = inventoryManager->GetInventoryItemCount(itemId, false, false, false);
+        if (checkRetainerInventory)
+            count += (int)_externalPluginHandler.GetRetainerItemCount(itemId);
+        return count;
     }
 
     private decimal GetSealMultiplier()

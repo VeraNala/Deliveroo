@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using ARControl.External;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 
@@ -11,6 +12,7 @@ internal sealed class ExternalPluginHandler : IDisposable
     private readonly IPluginLog _pluginLog;
     private readonly DeliverooIpc _deliverooIpc;
     private readonly PandoraIpc _pandoraIpc;
+    private readonly AllaganToolsIpc _allaganToolsIpc;
 
     private bool? _pandoraState;
 
@@ -20,6 +22,7 @@ internal sealed class ExternalPluginHandler : IDisposable
         _pluginLog = pluginLog;
         _deliverooIpc = new DeliverooIpc(pluginInterface);
         _pandoraIpc = new PandoraIpc(pluginInterface, pluginLog);
+        _allaganToolsIpc = new AllaganToolsIpc(pluginInterface, pluginLog);
     }
 
     public bool Saved { get; private set; }
@@ -89,4 +92,6 @@ internal sealed class ExternalPluginHandler : IDisposable
     {
         _deliverooIpc.Dispose();
     }
+
+    public uint GetRetainerItemCount(uint itemId) => _allaganToolsIpc.GetRetainerItemCount(itemId);
 }

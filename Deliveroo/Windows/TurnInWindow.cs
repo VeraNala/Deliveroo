@@ -138,6 +138,7 @@ internal sealed class TurnInWindow : LImGui.LWindow
                         SubCategory = x.Reward.SubCategory,
                         StackSize = x.Reward.StackSize,
                         Type = x.Item.Type,
+                        CheckRetainerInventory = x.Item.CheckRetainerInventory,
                     };
                     if (x.Item.Type == Configuration.PurchaseType.PurchaseOneTime)
                     {
@@ -241,18 +242,22 @@ internal sealed class TurnInWindow : LImGui.LWindow
         var itemsWrapper = ItemsWrapper;
         ImGui.Text($"Items to buy ({itemsWrapper.Name}):");
 
-        List<(GcRewardItem Item, string Name)> comboValues = new()
+        List<(GcRewardItem Item, string NameWithoutRetainers, string NameWithRetainers)> comboValues = new()
         {
-            (GcRewardItem.None, GcRewardItem.None.Name),
+            (GcRewardItem.None, GcRewardItem.None.Name, GcRewardItem.None.Name),
         };
         foreach (uint itemId in _configuration.ItemsAvailableForPurchase)
         {
             var gcReward = _gcRewardsCache.GetReward(itemId);
-            int itemCount = _plugin.GetItemCount(itemId);
-            string itemName = gcReward.Name;
-            if (itemCount > 0)
-                itemName += $" ({itemCount:N0})";
-            comboValues.Add((gcReward, itemName));
+            int itemCountWithoutRetainers = _plugin.GetItemCount(itemId, false);
+            int itemCountWithRetainers = _plugin.GetItemCount(itemId, true);
+            string itemNameWithoutRetainers = gcReward.Name;
+            string itemNameWithRetainers = gcReward.Name;
+            if (itemCountWithoutRetainers > 0)
+                itemNameWithoutRetainers += $" ({itemCountWithoutRetainers:N0})";
+            if (itemCountWithRetainers > 0)
+                itemNameWithRetainers += $" ({itemCountWithRetainers:N0})";
+            comboValues.Add((gcReward, itemNameWithoutRetainers, itemNameWithRetainers));
         }
 
         if (itemsWrapper.GetItemsToPurchase().Count == 0)
@@ -291,12 +296,25 @@ internal sealed class TurnInWindow : LImGui.LWindow
                     itemsWrapper.Save();
                 }
 
-                ImGui.SetNextItemWidth(150 * ImGuiHelpers.GlobalScale);
+                ImGui.SetNextItemWidth(375 * ImGuiHelpers.GlobalScale);
                 int type = (int)item.Type;
                 if (ImGui.Combo($"##Type{i}", ref type, StockingTypeLabels, StockingTypeLabels.Length))
                 {
                     item.Type = (Configuration.PurchaseType)type;
+                    if (item.Type != Configuration.PurchaseType.KeepStocked)
+                        item.CheckRetainerInventory = false;
                     itemsWrapper.Save();
+                }
+
+                if (item.Type == Configuration.PurchaseType.KeepStocked && item.ItemId != ItemIds.Venture)
+                {
+                    bool checkRetainerInventory = item.CheckRetainerInventory;
+                    if (ImGui.Checkbox("Check Retainer Inventory for items (requires AllaganTools)",
+                            ref checkRetainerInventory))
+                    {
+                        item.CheckRetainerInventory = checkRetainerInventory;
+                        itemsWrapper.Save();
+                    }
                 }
 
                 ImGui.EndPopup();
@@ -324,7 +342,9 @@ internal sealed class TurnInWindow : LImGui.LWindow
 
             indentX = ImGui.GetCursorPosX() - indentX;
 
-            if (ImGui.Combo("", ref comboValueIndex, comboValues.Select(x => x.Name).ToArray(), comboValues.Count))
+            if (ImGui.Combo("", ref comboValueIndex,
+                    comboValues.Select(x => item.CheckRetainerInventory ? x.NameWithRetainers : x.NameWithoutRetainers)
+                        .ToArray(), comboValues.Count))
             {
                 comboItem = comboValues[comboValueIndex];
                 item.ItemId = comboItem.Item.ItemId;

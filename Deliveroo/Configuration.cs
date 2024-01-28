@@ -31,6 +31,7 @@ internal sealed class Configuration : IPluginConfiguration
         public int Limit { get; set; }
         public bool Enabled { get; set; } = true;
         public PurchaseType Type { get; set; } = PurchaseType.KeepStocked;
+        public bool CheckRetainerInventory { get; set; }
 
         public string GetIcon()
         {

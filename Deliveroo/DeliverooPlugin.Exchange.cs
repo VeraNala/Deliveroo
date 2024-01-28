@@ -40,7 +40,7 @@ partial class DeliverooPlugin
 
             if (request.Type == Configuration.PurchaseType.KeepStocked)
             {
-                if (GetItemCount(request.ItemId) + toBuy < request.EffectiveLimit)
+                if (GetItemCount(request.ItemId, request.CheckRetainerInventory) + toBuy < request.EffectiveLimit)
                     return request;
             }
             else
@@ -148,7 +148,7 @@ partial class DeliverooPlugin
                 _pluginLog.Information($"Selecting item {itemId}, {i}");
                 long toBuy = (GetCurrentSealCount() - EffectiveReservedSealCount) / item.SealCost;
                 if (item.Type == Configuration.PurchaseType.KeepStocked)
-                    toBuy = Math.Min(toBuy, item.EffectiveLimit - GetItemCount(item.ItemId));
+                    toBuy = Math.Min(toBuy, item.EffectiveLimit - GetItemCount(item.ItemId, item.CheckRetainerInventory));
                 else
                     toBuy = Math.Min(toBuy, item.EffectiveLimit);
 

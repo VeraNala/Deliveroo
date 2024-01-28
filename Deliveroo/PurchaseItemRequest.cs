@@ -13,6 +13,7 @@ internal sealed class PurchaseItemRequest
     public required RewardSubCategory SubCategory { get; init; }
     public required uint StackSize { get; init; }
     public required Configuration.PurchaseType Type { get; init; }
+    public required bool CheckRetainerInventory { get; init; }
 
     public Action<int>? OnPurchase { get; set; }
     public long TemporaryPurchaseQuantity { get; set; }
