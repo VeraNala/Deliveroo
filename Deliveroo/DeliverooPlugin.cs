@@ -53,6 +53,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
     private readonly ConfigWindow _configWindow;
     private readonly TurnInWindow _turnInWindow;
     private readonly IReadOnlyDictionary<uint, uint> _sealCaps;
+    private readonly Dictionary<uint, int> _retainerItemCache = new();
 
     private Stage _currentStageInternal = Stage.Stopped;
     private DateTime _continueAt = DateTime.MinValue;
@@ -95,6 +96,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         _pluginInterface.UiBuilder.OpenConfigUi += _configWindow.Toggle;
         _clientState.Login += Login;
         _clientState.Logout += Logout;
+        _clientState.TerritoryChanged += TerritoryChanged;
         _chatGui.ChatMessage += ChatMessage;
         _commandManager.AddHandler("/deliveroo", new CommandInfo(ProcessCommand)
         {
@@ -200,6 +202,13 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
     private void Logout()
     {
         CharacterConfiguration = null;
+        _retainerItemCache.Clear();
+    }
+
+    private void TerritoryChanged(ushort territoryType)
+    {
+        // there is no GC area that is in the same zone as a retainer bell, so this should be often enough.
+        _retainerItemCache.Clear();
     }
 
     private unsafe void FrameworkUpdate(IFramework f)
@@ -348,6 +357,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
 
         _commandManager.RemoveHandler("/deliveroo");
         _chatGui.ChatMessage -= ChatMessage;
+        _clientState.TerritoryChanged -= TerritoryChanged;
         _clientState.Logout -= Logout;
         _clientState.Login -= Login;
         _pluginInterface.UiBuilder.OpenConfigUi -= _configWindow.Toggle;

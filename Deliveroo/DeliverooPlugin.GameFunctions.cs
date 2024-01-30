@@ -101,8 +101,17 @@ partial class DeliverooPlugin
     {
         InventoryManager* inventoryManager = InventoryManager.Instance();
         int count = inventoryManager->GetInventoryItemCount(itemId, false, false, false);
+
         if (checkRetainerInventory)
-            count += (int)_externalPluginHandler.GetRetainerItemCount(itemId);
+        {
+            if (!_retainerItemCache.TryGetValue(itemId, out int retainerCount))
+            {
+                _retainerItemCache[itemId] = retainerCount = (int)_externalPluginHandler.GetRetainerItemCount(itemId);
+            }
+
+            count += retainerCount;
+        }
+
         return count;
     }
 
