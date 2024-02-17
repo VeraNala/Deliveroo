@@ -104,7 +104,7 @@ partial class DeliverooPlugin
             {
                 _pluginLog.Information(
                     $"No items to turn in ({addonGc->ListEmptyTextNode->AtkResNode.IsVisible}, {currentListSize})");
-                CurrentStage = Stage.CloseGcSupplyThenStop;
+                CurrentStage = Stage.CloseGcSupplySelectStringThenStop;
                 addon->FireCallbackInt(-1);
                 return;
             }
@@ -135,7 +135,7 @@ partial class DeliverooPlugin
             if (items.Count == 0)
             {
                 // probably shouldn't happen with the previous node visibility check
-                CurrentStage = Stage.CloseGcSupplyThenStop;
+                CurrentStage = Stage.CloseGcSupplySelectStringThenStop;
                 addon->FireCallbackInt(-1);
                 return;
             }
@@ -161,7 +161,7 @@ partial class DeliverooPlugin
             // Helms from being turned in.
             if (GetCurrentSealCount() + items[0].SealsWithBonus > GetSealCap())
             {
-                CurrentStage = Stage.CloseGcSupply;
+                CurrentStage = Stage.CloseGcSupplySelectString;
                 addon->FireCallbackInt(-1);
                 return;
             }
@@ -192,6 +192,7 @@ partial class DeliverooPlugin
                     .Build());
 
                 addonSupplyReward->AtkUnitBase.FireCallbackInt(1);
+                CurrentStage = Stage.CloseGcSupplyWindowThenStop;
                 return;
             }
 
@@ -225,5 +226,23 @@ partial class DeliverooPlugin
             return ItemFilterType.HideArmouryChestItems;
 
         return ItemFilterType.HideGearSetItems;
+    }
+
+    private unsafe void CloseGcSupplyWindow()
+    {
+        var agentInterface = AgentModule.Instance()->GetAgentByInternalId(AgentId.GrandCompanySupply);
+        if (agentInterface != null && agentInterface->IsAgentActive())
+        {
+            var addonId = agentInterface->GetAddonID();
+            if (addonId == 0)
+                return;
+
+            AtkUnitBase* addon = LAddon.GetAddonById(addonId);
+            if (addon == null || !LAddon.IsAddonReady(addon))
+                return;
+
+            CurrentStage = Stage.CloseGcSupplySelectStringThenStop;
+            addon->FireCallbackInt(-1);
+        }
     }
 }

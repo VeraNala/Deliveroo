@@ -302,12 +302,16 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
                     FinalizeTurnInItem();
                     break;
 
-                case Stage.CloseGcSupply:
+                case Stage.CloseGcSupplySelectString:
                     // see SelectStringPostSetup
                     break;
 
-                case Stage.CloseGcSupplyThenStop:
+                case Stage.CloseGcSupplySelectStringThenStop:
                     // see SelectStringPostSetup
+                    break;
+
+                case Stage.CloseGcSupplyWindowThenStop:
+                    CloseGcSupplyWindow();
                     break;
 
                 case Stage.TargetQuartermaster:

@@ -8,8 +8,9 @@ internal enum Stage
     SelectItemToTurnIn,
     TurnInSelected,
     FinalizeTurnIn,
-    CloseGcSupply,
-    CloseGcSupplyThenStop,
+    CloseGcSupplySelectString,
+    CloseGcSupplySelectStringThenStop,
+    CloseGcSupplyWindowThenStop,
 
     TargetQuartermaster,
     SelectRewardTier,

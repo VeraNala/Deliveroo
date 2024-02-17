@@ -17,17 +17,17 @@ partial class DeliverooPlugin
         if (CurrentStage == Stage.OpenGcSupply)
         {
             desiredText = _gameStrings.UndertakeSupplyAndProvisioningMission;
-            followUp = OpenGcSupplyFollowUp;
+            followUp = OpenGcSupplySelectStringFollowUp;
         }
-        else if (CurrentStage == Stage.CloseGcSupply)
+        else if (CurrentStage == Stage.CloseGcSupplySelectString)
         {
             desiredText = _gameStrings.ClosePersonnelOfficerTalk;
-            followUp = CloseGcSupplyFollowUp;
+            followUp = CloseGcSupplySelectStringFollowUp;
         }
-        else if (CurrentStage == Stage.CloseGcSupplyThenStop)
+        else if (CurrentStage == Stage.CloseGcSupplySelectStringThenStop)
         {
             desiredText = _gameStrings.ClosePersonnelOfficerTalk;
-            followUp = CloseGcSupplyThenCloseFollowUp;
+            followUp = CloseGcSupplySelectStringThenStopFollowUp;
         }
         else
             return;
@@ -58,13 +58,13 @@ partial class DeliverooPlugin
         _pluginLog.Verbose($"Text '{desiredText}' was not found in prompt.");
     }
 
-    private void OpenGcSupplyFollowUp()
+    private void OpenGcSupplySelectStringFollowUp()
     {
         ResetTurnInErrorHandling();
         CurrentStage = Stage.SelectExpertDeliveryTab;
     }
 
-    private void CloseGcSupplyFollowUp()
+    private void CloseGcSupplySelectStringFollowUp()
     {
         if (GetNextItemToPurchase() == null)
         {
@@ -79,7 +79,7 @@ partial class DeliverooPlugin
         }
     }
 
-    private void CloseGcSupplyThenCloseFollowUp()
+    private void CloseGcSupplySelectStringThenStopFollowUp()
     {
         if (GetNextItemToPurchase() == null)
         {
