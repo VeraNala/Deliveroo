@@ -50,6 +50,8 @@ internal sealed class TurnInWindow : LImGui.LWindow
     private readonly GcRewardsCache _gcRewardsCache;
     private readonly IconCache _iconCache;
 
+    private bool _state;
+
     public TurnInWindow(DeliverooPlugin plugin, DalamudPluginInterface pluginInterface, Configuration configuration,
         ICondition condition, IClientState clientState, GcRewardsCache gcRewardsCache, ConfigWindow configWindow,
         IconCache iconCache)
@@ -72,7 +74,7 @@ internal sealed class TurnInWindow : LImGui.LWindow
             MaximumSize = new Vector2(500, 999),
         };
 
-        Flags = ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoCollapse;
+        State = false;
         ShowCloseButton = false;
         AllowClickthrough = false;
 
@@ -91,7 +93,18 @@ internal sealed class TurnInWindow : LImGui.LWindow
         });
     }
 
-    public bool State { get; set; }
+    public bool State
+    {
+        get => _state;
+        set
+        {
+            _state = value;
+            if (value)
+                Flags = ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoCollapse;
+            else
+                Flags = ImGuiWindowFlags.AlwaysAutoResize;
+        }
+    }
     public decimal Multiplier { private get; set; }
     public string Error { private get; set; } = string.Empty;
 
