@@ -184,11 +184,11 @@ partial class DeliverooPlugin
         {
             string? itemName = addonSupplyReward->AtkUnitBase.AtkValues[4].ReadAtkString();
             if (itemName != null && _itemCache.GetItemIdFromItemName(itemName)
-                    .Any(itemId => DisabledTurnInItems.Contains(itemId)))
+                    .Any(itemId => InternalConfiguration.QuickVentureExclusiveItems.Contains(itemId)))
             {
                 _chatGui.Print(new SeStringBuilder().Append("Won't turn in ")
                     .AddItemLink(_itemCache.GetItemIdFromItemName(itemName).First())
-                    .Append(".")
+                    .Append(", as can be exclusively obtained exclusively through Quick Ventures.")
                     .Build());
 
                 addonSupplyReward->AtkUnitBase.FireCallbackInt(1);
