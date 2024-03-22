@@ -34,7 +34,7 @@ partial class DeliverooPlugin
             if (request == previousRequest)
             {
                 toBuy = (int)request.StackSize;
-                if (request.ItemId != ItemIds.Venture && !_configuration.IgnoreCertainLimitations)
+                if (request.ItemId != ItemIds.Venture)
                     toBuy = Math.Min(toBuy, 99);
             }
 
@@ -152,7 +152,7 @@ partial class DeliverooPlugin
                 else
                     toBuy = Math.Min(toBuy, item.EffectiveLimit);
 
-                if (item.ItemId != ItemIds.Venture && !_configuration.IgnoreCertainLimitations)
+                if (item.ItemId != ItemIds.Venture)
                     toBuy = Math.Min(toBuy, 99);
 
                 if (toBuy <= 0)

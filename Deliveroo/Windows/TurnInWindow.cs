@@ -15,10 +15,11 @@ using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using ImGuiNET;
 using LLib;
+using LLib.ImGui;
 
 namespace Deliveroo.Windows;
 
-internal sealed class TurnInWindow : LImGui.LWindow
+internal sealed class TurnInWindow : LWindow
 {
     private static readonly IReadOnlyList<InventoryType> InventoryTypes = new[]
     {
@@ -224,13 +225,15 @@ internal sealed class TurnInWindow : LImGui.LWindow
             if (Multiplier <= 1.10m)
             {
                 InventoryManager* inventoryManager = InventoryManager.Instance();
+                AgentInventoryContext* agentInventoryContext = AgentInventoryContext.Instance();
                 if (inventoryManager->GetInventoryItemCount(ItemIds.PrioritySealAllowance) > 0)
                 {
                     ImGui.BeginDisabled(_condition[ConditionFlag.OccupiedInQuestEvent] ||
-                                        _condition[ConditionFlag.Casting]);
+                                        _condition[ConditionFlag.Casting] ||
+                                        agentInventoryContext == null);
                     if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.Bolt, "Use Priority Seal Allowance (15%)"))
                     {
-                        AgentInventoryContext.Instance()->UseItem(ItemIds.PrioritySealAllowance);
+                        agentInventoryContext->UseItem(ItemIds.PrioritySealAllowance);
                     }
 
                     ImGui.EndDisabled();

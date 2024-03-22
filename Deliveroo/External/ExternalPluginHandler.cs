@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using ARControl.External;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 

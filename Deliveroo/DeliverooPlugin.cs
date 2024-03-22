@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.ClientState.Conditions;
@@ -25,7 +26,6 @@ namespace Deliveroo;
 public sealed partial class DeliverooPlugin : IDalamudPlugin
 {
     private readonly WindowSystem _windowSystem = new(typeof(DeliverooPlugin).AssemblyQualifiedName);
-    private readonly IReadOnlyList<uint> DisabledTurnInItems = new List<uint> { 2820 }.AsReadOnly();
 
     private readonly DalamudPluginInterface _pluginInterface;
     private readonly IChatGui _chatGui;
@@ -52,13 +52,13 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
     private readonly ItemCache _itemCache;
     private readonly ConfigWindow _configWindow;
     private readonly TurnInWindow _turnInWindow;
-    private readonly IReadOnlyDictionary<uint, uint> _sealCaps;
+    private readonly ReadOnlyDictionary<uint, uint> _sealCaps;
     private readonly Dictionary<uint, int> _retainerItemCache = new();
 
     private Stage _currentStageInternal = Stage.Stopped;
     private DateTime _continueAt = DateTime.MinValue;
     private int _lastTurnInListSize = int.MaxValue;
-    private uint _turnInErrors = 0;
+    private uint _turnInErrors;
     private List<PurchaseItemRequest> _itemsToPurchaseNow = new();
 
     public DeliverooPlugin(DalamudPluginInterface pluginInterface, IChatGui chatGui, IGameGui gameGui,
@@ -66,6 +66,8 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         IDataManager dataManager, ICondition condition, ICommandManager commandManager, IPluginLog pluginLog,
         IAddonLifecycle addonLifecycle, ITextureProvider textureProvider)
     {
+        ArgumentNullException.ThrowIfNull(dataManager);
+
         _pluginInterface = pluginInterface;
         _chatGui = chatGui;
         _gameGui = gameGui;
@@ -89,7 +91,8 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         _turnInWindow = new TurnInWindow(this, _pluginInterface, _configuration, _condition, _clientState, _gcRewardsCache, _configWindow, _iconCache);
         _windowSystem.AddWindow(_turnInWindow);
         _sealCaps = dataManager.GetExcelSheet<GrandCompanyRank>()!.Where(x => x.RowId > 0)
-            .ToDictionary(x => x.RowId, x => x.MaxSeals);
+            .ToDictionary(x => x.RowId, x => x.MaxSeals)
+            .AsReadOnly();
 
         _framework.Update += FrameworkUpdate;
         _pluginInterface.UiBuilder.Draw += _windowSystem.Draw;
@@ -160,7 +163,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
             if (CharacterConfiguration is { IgnoreMinimumSealsToKeep: true })
                 return 0;
 
-            return _configuration.ReserveDifferentSealCountAtMaxRank && GetSealCap() == GetMaxSealCap()
+            return _configuration.ReserveDifferentSealCountAtMaxRank && GetSealCap() == MaxSealCap
                 ? _configuration.ReservedSealCountAtMaxRank
                 : _configuration.ReservedSealCount;
         }

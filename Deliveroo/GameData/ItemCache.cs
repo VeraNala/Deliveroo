@@ -4,7 +4,7 @@ using Lumina.Excel.GeneratedSheets;
 
 namespace Deliveroo.GameData;
 
-internal class ItemCache
+internal sealed class ItemCache
 {
     private readonly Dictionary<string, HashSet<uint>> _itemNamesToIds = new();
 

@@ -12,10 +12,11 @@ using Dalamud.Plugin.Services;
 using Deliveroo.GameData;
 using ImGuiNET;
 using LLib;
+using LLib.ImGui;
 
 namespace Deliveroo.Windows;
 
-internal sealed class ConfigWindow : LImGui.LWindow
+internal sealed class ConfigWindow : LWindow
 {
     private readonly DalamudPluginInterface _pluginInterface;
     private readonly DeliverooPlugin _plugin;
@@ -160,7 +161,7 @@ internal sealed class ConfigWindow : LImGui.LWindow
                 bool addFirst = ImGui.InputTextWithHint("", "Filter...", ref _searchString, 256,
                     ImGuiInputTextFlags.AutoSelectAll | ImGuiInputTextFlags.EnterReturnsTrue);
 
-                foreach (var item in comboValues.Where(x => x.Name.ToLower().Contains(_searchString.ToLower())))
+                foreach (var item in comboValues.Where(x => x.Name.Contains(_searchString, StringComparison.OrdinalIgnoreCase)))
                 {
                     IDalamudTextureWrap? icon = _iconCache.GetIcon(item.IconId);
                     if (icon != null)
@@ -314,7 +315,7 @@ internal sealed class ConfigWindow : LImGui.LWindow
             if (ImGui.InputInt("Minimum Seals to keep (e.g. for Squadron Missions)", ref reservedSealCount, 1000))
             {
                 _configuration.ReservedSealCount =
-                    Math.Max(0, Math.Min((int)_plugin.GetMaxSealCap(), reservedSealCount));
+                    Math.Max(0, Math.Min((int)_plugin.MaxSealCap, reservedSealCount));
                 Save();
             }
 
@@ -334,7 +335,7 @@ internal sealed class ConfigWindow : LImGui.LWindow
                 if (ImGui.InputInt("Minimum seals to keep at max rank", ref reservedSealCountAtMaxRank))
                 {
                     _configuration.ReservedSealCountAtMaxRank = Math.Max(0,
-                        Math.Min((int)_plugin.GetMaxSealCap(), reservedSealCountAtMaxRank));
+                        Math.Min((int)_plugin.MaxSealCap, reservedSealCountAtMaxRank));
                     Save();
                 }
 

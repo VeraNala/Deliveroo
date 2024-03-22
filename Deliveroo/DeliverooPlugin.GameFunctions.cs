@@ -66,7 +66,7 @@ partial class DeliverooPlugin
         return float.MaxValue;
     }
 
-    private int GetNpcId(GameObject obj)
+    private static int GetNpcId(GameObject obj)
     {
         return Marshal.ReadInt32(obj.Address + 128);
     }
@@ -95,7 +95,7 @@ partial class DeliverooPlugin
 
     private uint GetSealCap() => _sealCaps.TryGetValue(GetGrandCompanyRank(), out var cap) ? cap : 0;
 
-    public uint GetMaxSealCap() => _sealCaps[11];
+    public uint MaxSealCap => _sealCaps[11];
 
     public unsafe int GetItemCount(uint itemId, bool checkRetainerInventory)
     {

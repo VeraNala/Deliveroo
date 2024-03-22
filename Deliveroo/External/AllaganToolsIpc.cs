@@ -5,9 +5,9 @@ using Dalamud.Plugin.Ipc.Exceptions;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game;
 
-namespace ARControl.External;
+namespace Deliveroo.External;
 
-public class AllaganToolsIpc
+internal sealed class AllaganToolsIpc
 {
     private readonly IPluginLog _pluginLog;
 

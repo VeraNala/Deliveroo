@@ -18,13 +18,6 @@ internal sealed class Configuration : IPluginConfiguration
     public int PauseAtRank { get; set; }
     public EBehaviorOnOtherWorld BehaviorOnOtherWorld { get; set; } = EBehaviorOnOtherWorld.Warning;
 
-    /// <summary>
-    /// A config-only setting, not exposed in the UI.
-    ///
-    /// If set, buys all GC items in their max quantity (otherwise, everything except ventures is capped to 99).
-    /// </summary>
-    public bool IgnoreCertainLimitations { get; set; } = false;
-
     internal sealed class PurchasePriority
     {
         public uint ItemId { get; set; }
