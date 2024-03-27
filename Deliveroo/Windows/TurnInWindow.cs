@@ -49,6 +49,7 @@ internal sealed class TurnInWindow : LWindow
     private readonly ICondition _condition;
     private readonly IClientState _clientState;
     private readonly GcRewardsCache _gcRewardsCache;
+    private readonly ConfigWindow _configWindow;
     private readonly IconCache _iconCache;
 
     private bool _state;
@@ -64,6 +65,7 @@ internal sealed class TurnInWindow : LWindow
         _condition = condition;
         _clientState = clientState;
         _gcRewardsCache = gcRewardsCache;
+        _configWindow = configWindow;
         _iconCache = iconCache;
 
         Position = new Vector2(100, 100);
@@ -200,7 +202,8 @@ internal sealed class TurnInWindow : LWindow
             State = state;
         }
 
-        ImGui.Indent(27);
+        float indentSize = ImGui.GetFrameHeight() + ImGui.GetStyle().ItemInnerSpacing.X;
+        ImGui.Indent(indentSize);
         if (!string.IsNullOrEmpty(Error))
         {
             ImGui.TextColored(ImGuiColors.DalamudRed, Error);
@@ -240,7 +243,7 @@ internal sealed class TurnInWindow : LWindow
                 }
             }
 
-            ImGui.Unindent(27);
+            ImGui.Unindent(indentSize);
             ImGui.Separator();
             ImGui.BeginDisabled(state);
 
@@ -352,7 +355,7 @@ internal sealed class TurnInWindow : LWindow
             IDalamudTextureWrap? icon = _iconCache.GetIcon(comboItem.Item.IconId);
             if (icon != null)
             {
-                ImGui.Image(icon.ImGuiHandle, new Vector2(23, 23));
+                ImGui.Image(icon.ImGuiHandle, new Vector2(ImGui.GetFrameHeight()));
                 ImGui.SameLine(0, 3);
             }
 
@@ -475,6 +478,10 @@ internal sealed class TurnInWindow : LWindow
 
                 ImGui.EndPopup();
             }
+
+            ImGui.SameLine();
+            if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.Cog, "Configure available Items"))
+                _configWindow.IsOpen = true;
         }
     }
 

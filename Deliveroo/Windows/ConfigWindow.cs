@@ -89,9 +89,9 @@ internal sealed class ConfigWindow : LWindow
                     IDalamudTextureWrap? icon = _iconCache.GetIcon(item.IconId);
                     if (icon != null)
                     {
-                        ImGui.Image(icon.ImGuiHandle, new Vector2(23, 23));
+                        ImGui.Image(icon.ImGuiHandle, new Vector2(ImGui.GetFrameHeight()));
                         ImGui.SameLine();
-                        ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 3);
+                        ImGui.SetCursorPosY(ImGui.GetCursorPosY() + ImGui.GetStyle().FramePadding.X);
                     }
 
                     ImGui.Selectable($"{item.Name}{(item.Limited ? $" {SeIconChar.Hyadelyn.ToIconString()}" : "")}");
@@ -166,9 +166,9 @@ internal sealed class ConfigWindow : LWindow
                     IDalamudTextureWrap? icon = _iconCache.GetIcon(item.IconId);
                     if (icon != null)
                     {
-                        ImGui.Image(icon.ImGuiHandle, new Vector2(23, 23));
+                        ImGui.Image(icon.ImGuiHandle, new Vector2(ImGui.GetFrameHeight()));
                         ImGui.SameLine();
-                        ImGui.SetCursorPosY(ImGui.GetCursorPosY() + 3);
+                        ImGui.SetCursorPosY(ImGui.GetCursorPosY() + ImGui.GetStyle().FramePadding.X);
                     }
 
                     bool addThis =
@@ -329,7 +329,8 @@ internal sealed class ConfigWindow : LWindow
 
             if (reserveDifferentSealCountAtMaxRank)
             {
-                ImGui.Indent();
+                float indentSize = ImGui.GetFrameHeight() + ImGui.GetStyle().ItemInnerSpacing.X;
+                ImGui.Indent(indentSize);
                 ImGui.SetNextItemWidth(ImGuiHelpers.GlobalScale * 100);
                 int reservedSealCountAtMaxRank = _configuration.ReservedSealCountAtMaxRank;
                 if (ImGui.InputInt("Minimum seals to keep at max rank", ref reservedSealCountAtMaxRank))
@@ -339,7 +340,7 @@ internal sealed class ConfigWindow : LWindow
                     Save();
                 }
 
-                ImGui.Unindent();
+                ImGui.Unindent(indentSize);
             }
 
             ImGui.EndDisabled();
