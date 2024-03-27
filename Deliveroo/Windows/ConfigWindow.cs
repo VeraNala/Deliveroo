@@ -76,7 +76,7 @@ internal sealed class ConfigWindow : LWindow
             uint? itemToRemove = null;
             uint? itemToAdd = null;
             int indexToAdd = 0;
-            if (ImGui.BeginChild("Items", new Vector2(-1, -30), true, ImGuiWindowFlags.NoSavedSettings))
+            if (ImGui.BeginChild("Items", new Vector2(-1, -ImGui.GetFrameHeightWithSpacing()), true, ImGuiWindowFlags.NoSavedSettings))
             {
                 for (int i = 0; i < _configuration.ItemsAvailableForPurchase.Count; ++i)
                 {
@@ -87,14 +87,21 @@ internal sealed class ConfigWindow : LWindow
 
                     var item = _itemLookup[itemId];
                     IDalamudTextureWrap? icon = _iconCache.GetIcon(item.IconId);
+                    Vector2 pos = ImGui.GetCursorPos();
+                    Vector2 iconSize = new Vector2(ImGui.GetTextLineHeight() + ImGui.GetStyle().ItemSpacing.Y);
                     if (icon != null)
                     {
-                        ImGui.Image(icon.ImGuiHandle, new Vector2(ImGui.GetFrameHeight()));
-                        ImGui.SameLine();
-                        ImGui.SetCursorPosY(ImGui.GetCursorPosY() + ImGui.GetStyle().FramePadding.X);
+                        ImGui.SetCursorPos(pos + new Vector2(iconSize.X + ImGui.GetStyle().FramePadding.X, ImGui.GetStyle().ItemSpacing.Y / 2));
                     }
 
-                    ImGui.Selectable($"{item.Name}{(item.Limited ? $" {SeIconChar.Hyadelyn.ToIconString()}" : "")}");
+                    ImGui.Selectable($"{item.Name}{(item.Limited ? $" {SeIconChar.Hyadelyn.ToIconString()}" : "")}", false, ImGuiSelectableFlags.SpanAllColumns);
+
+                    if (icon != null)
+                    {
+                        ImGui.SameLine(0, 0);
+                        ImGui.SetCursorPos(pos);
+                        ImGui.Image(icon.ImGuiHandle, iconSize);
+                    }
 
                     if (ImGui.BeginDragDropSource())
                     {
