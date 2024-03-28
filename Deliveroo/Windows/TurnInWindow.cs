@@ -192,7 +192,7 @@ internal sealed class TurnInWindow : LWindow
                  !IsOnHomeWorld)
         {
             State = false;
-            ImGui.TextColored(ImGuiColors.DalamudRed, "You are not on your home world.");
+            ImGui.TextColored(ImGuiColors.DalamudRed, "Turn-in disabled, you are not on your home world.");
             return;
         }
 
@@ -213,7 +213,7 @@ internal sealed class TurnInWindow : LWindow
             if (_configuration.BehaviorOnOtherWorld == Configuration.EBehaviorOnOtherWorld.Warning && !IsOnHomeWorld)
             {
                 ImGui.TextColored(ImGuiColors.DalamudRed,
-                    "Turn-In disabled, you are not on your home world and will not earn FC points.");
+                    "You are not on your home world and will not earn FC points.");
             }
 
             if (Multiplier == 1m)
