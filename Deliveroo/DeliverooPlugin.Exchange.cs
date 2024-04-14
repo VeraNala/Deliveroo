@@ -200,7 +200,10 @@ partial class DeliverooPlugin
                 CurrentStage = Stage.RequestStop;
             }
             else
+            {
+                _continueAt = DateTime.Now.AddSeconds(1);
                 CurrentStage = Stage.TargetPersonnelOfficer;
+            }
         }
     }
 }

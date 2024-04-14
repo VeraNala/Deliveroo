@@ -187,7 +187,7 @@ partial class DeliverooPlugin
             {
                 _chatGui.Print(new SeStringBuilder().Append("Won't turn in ")
                     .AddItemLink(_itemCache.GetItemIdFromItemName(itemName).First())
-                    .Append(", as can be exclusively obtained exclusively through Quick Ventures.")
+                    .Append(", as it can only be obtained through Quick Ventures.")
                     .Build());
 
                 addonSupplyReward->AtkUnitBase.FireCallbackInt(1);
