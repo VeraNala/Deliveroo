@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using Dalamud.Game.ClientState.Conditions;
+using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Interface;
 using Dalamud.Interface.Colors;
 using Dalamud.Interface.Components;
@@ -108,6 +109,7 @@ internal sealed class TurnInWindow : LWindow
                 Flags = ImGuiWindowFlags.AlwaysAutoResize;
         }
     }
+
     public decimal Multiplier { private get; set; }
     public string Error { private get; set; } = string.Empty;
 
@@ -186,6 +188,8 @@ internal sealed class TurnInWindow : LWindow
         {
             State = false;
             ImGui.TextColored(ImGuiColors.DalamudRed, "You do not have the required rank for Expert Delivery.");
+
+            DrawNextRankPrequesites();
             return;
         }
         else if (_configuration.BehaviorOnOtherWorld == Configuration.EBehaviorOnOtherWorld.DisableTurnIn &&
@@ -254,6 +258,52 @@ internal sealed class TurnInWindow : LWindow
 
         ImGui.Separator();
         ImGui.Text($"Debug (State): {_plugin.CurrentStage}");
+    }
+
+    private unsafe void DrawNextRankPrequesites()
+    {
+        string? rankName = _plugin.GetNextGrandCompanyRankName();
+        if (rankName != null)
+        {
+            int currentSeals = _plugin.GetCurrentSealCount();
+            uint requiredSeals = _plugin.GetSealsRequiredForNextRank();
+
+            int currentHuntingLog = MonsterNoteManager.Instance()->RankDataArraySpan[(int)_plugin.GetGrandCompany() + 7]
+                .Rank;
+            byte requiredHuntingLog = _plugin.GetRequiredHuntingLogForNextRank();
+
+            bool enoughSeals = currentSeals >= requiredSeals;
+            bool enoughHuntingLog = requiredHuntingLog >= currentHuntingLog;
+
+            if (enoughSeals && enoughHuntingLog)
+                ImGui.TextColored(ImGuiColors.HealerGreen, $"You meet all requirements to rank up to {rankName}.");
+            else
+                ImGui.Text($"Ranking up to {rankName} requires:");
+
+            ImGui.Indent();
+            if (enoughSeals)
+            {
+                ImGui.PushStyleColor(ImGuiCol.Text, ImGuiColors.HealerGreen);
+                ImGui.BulletText($"{currentSeals:N0} / {requiredSeals:N0} GC seals");
+                ImGui.PopStyleColor();
+            }
+            else
+                ImGui.BulletText($"{currentSeals:N0} / {requiredSeals:N0} GC seals");
+
+            if (requiredHuntingLog > 0)
+            {
+                if (enoughHuntingLog)
+                {
+                    ImGui.PushStyleColor(ImGuiCol.Text, ImGuiColors.HealerGreen);
+                    ImGui.BulletText($"Complete Hunting Log #{requiredHuntingLog}");
+                    ImGui.PopStyleColor();
+                }
+                else
+                    ImGui.BulletText($"Complete Hunting Log #{requiredHuntingLog}");
+            }
+
+            ImGui.Unindent();
+        }
     }
 
     private void DrawItemsToBuy(GrandCompany grandCompany)

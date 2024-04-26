@@ -28,7 +28,7 @@ partial class DeliverooPlugin
             (FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject*)obj.Address, false);
     }
 
-    private unsafe int GetCurrentSealCount()
+    internal unsafe int GetCurrentSealCount()
     {
         InventoryManager* inventoryManager = InventoryManager.Instance();
         switch ((GrandCompany)PlayerState.Instance()->GrandCompany)
@@ -93,9 +93,22 @@ partial class DeliverooPlugin
         };
     }
 
-    private uint GetSealCap() => _sealCaps.TryGetValue(GetGrandCompanyRank(), out var cap) ? cap : 0;
+    private uint GetSealCap() => _gcRankInfo.TryGetValue(GetGrandCompanyRank(), out var rank) ? rank.MaxSeals : 0;
 
-    public uint MaxSealCap => _sealCaps[11];
+    public uint MaxSealCap => _gcRankInfo[11].MaxSeals;
+
+    internal uint GetSealsRequiredForNextRank()
+        => _gcRankInfo.GetValueOrDefault(GetGrandCompanyRank())?.RequiredSeals ?? 0;
+
+    internal byte GetRequiredHuntingLogForNextRank()
+        => _gcRankInfo.GetValueOrDefault(GetGrandCompanyRank() + 1u)?.RequiredHuntingLog ?? 0;
+
+    internal string? GetNextGrandCompanyRankName()
+    {
+        bool female = _clientState.LocalPlayer!.Customize[(int)CustomizeIndex.Gender] == 1;
+        GrandCompany grandCompany = GetGrandCompany();
+        return _gcRankInfo.GetValueOrDefault(GetGrandCompanyRank() + 1u)?.GetName(grandCompany, female);
+    }
 
     public unsafe int GetItemCount(uint itemId, bool checkRetainerInventory)
     {

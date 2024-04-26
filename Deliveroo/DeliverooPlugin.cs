@@ -19,6 +19,7 @@ using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using LLib;
 using LLib.GameUI;
+using Lumina.Excel;
 using Lumina.Excel.GeneratedSheets;
 
 namespace Deliveroo;
@@ -52,7 +53,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
     private readonly ItemCache _itemCache;
     private readonly ConfigWindow _configWindow;
     private readonly TurnInWindow _turnInWindow;
-    private readonly ReadOnlyDictionary<uint, uint> _sealCaps;
+    private readonly ReadOnlyDictionary<uint, GcRankInfo> _gcRankInfo;
     private readonly Dictionary<uint, int> _retainerItemCache = new();
 
     private Stage _currentStageInternal = Stage.Stopped;
@@ -90,8 +91,20 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         _windowSystem.AddWindow(_configWindow);
         _turnInWindow = new TurnInWindow(this, _pluginInterface, _configuration, _condition, _clientState, _gcRewardsCache, _configWindow, _iconCache);
         _windowSystem.AddWindow(_turnInWindow);
-        _sealCaps = dataManager.GetExcelSheet<GrandCompanyRank>()!.Where(x => x.RowId > 0)
-            .ToDictionary(x => x.RowId, x => x.MaxSeals)
+
+        _gcRankInfo = dataManager.GetExcelSheet<GrandCompanyRank>()!.Where(x => x.RowId > 0)
+            .ToDictionary(x => x.RowId, x => new GcRankInfo
+            {
+                NameTwinAddersMale = ExtractRankName<GCRankGridaniaMaleText>(dataManager, x.RowId, r => r.Singular),
+                NameTwinAddersFemale = ExtractRankName<GCRankGridaniaFemaleText>(dataManager, x.RowId, r => r.Singular),
+                NameMaelstromMale = ExtractRankName<GCRankLimsaMaleText>(dataManager, x.RowId, r => r.Singular),
+                NameMaelstromFemale = ExtractRankName<GCRankLimsaFemaleText>(dataManager, x.RowId, r => r.Singular),
+                NameImmortalFlamesMale = ExtractRankName<GCRankUldahMaleText>(dataManager, x.RowId, r => r.Singular),
+                NameImmortalFlamesFemale = ExtractRankName<GCRankUldahFemaleText>(dataManager, x.RowId, r => r.Singular),
+                MaxSeals = x.MaxSeals,
+                RequiredSeals = x.RequiredSeals,
+                RequiredHuntingLog = x.Unknown10,
+            })
             .AsReadOnly();
 
         _framework.Update += FrameworkUpdate;
@@ -114,6 +127,12 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
 
         _addonLifecycle.RegisterListener(AddonEvent.PostSetup, "SelectString", SelectStringPostSetup);
         _addonLifecycle.RegisterListener(AddonEvent.PostSetup, "SelectYesno", SelectYesNoPostSetup);
+    }
+
+    private static string ExtractRankName<T>(IDataManager dataManager, uint rankId, Func<T, Lumina.Text.SeString> func)
+        where T : ExcelRow
+    {
+        return func(dataManager.GetExcelSheet<T>()!.GetRow(rankId)!).ToString();
     }
 
     private void ChatMessage(XivChatType type, uint senderId, ref SeString sender, ref SeString message, ref bool isHandled)
