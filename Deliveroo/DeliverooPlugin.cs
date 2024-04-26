@@ -14,13 +14,12 @@ using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using Deliveroo.External;
 using Deliveroo.GameData;
+using Deliveroo.Handlers;
 using Deliveroo.Windows;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using LLib;
 using LLib.GameUI;
-using Lumina.Excel;
-using Lumina.Excel.GeneratedSheets;
 
 namespace Deliveroo;
 
@@ -33,8 +32,6 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
     private readonly IGameGui _gameGui;
     private readonly IFramework _framework;
     private readonly IClientState _clientState;
-    private readonly IObjectTable _objectTable;
-    private readonly ITargetManager _targetManager;
     private readonly ICondition _condition;
     private readonly ICommandManager _commandManager;
     private readonly IPluginLog _pluginLog;
@@ -44,23 +41,19 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
     private readonly Configuration _configuration;
 
     private readonly GameStrings _gameStrings;
+    private readonly GameFunctions _gameFunctions;
     private readonly ExternalPluginHandler _externalPluginHandler;
 
     // ReSharper disable once PrivateFieldCanBeConvertedToLocalVariable
     private readonly GcRewardsCache _gcRewardsCache;
 
     private readonly IconCache _iconCache;
-    private readonly ItemCache _itemCache;
+    private readonly ExchangeHandler _exchangeHandler;
+    private readonly SupplyHandler _supplyHandler;
     private readonly ConfigWindow _configWindow;
     private readonly TurnInWindow _turnInWindow;
-    private readonly ReadOnlyDictionary<uint, GcRankInfo> _gcRankInfo;
-    private readonly Dictionary<uint, int> _retainerItemCache = new();
 
     private Stage _currentStageInternal = Stage.Stopped;
-    private DateTime _continueAt = DateTime.MinValue;
-    private int _lastTurnInListSize = int.MaxValue;
-    private uint _turnInErrors;
-    private List<PurchaseItemRequest> _itemsToPurchaseNow = new();
 
     public DeliverooPlugin(DalamudPluginInterface pluginInterface, IChatGui chatGui, IGameGui gameGui,
         IFramework framework, IClientState clientState, IObjectTable objectTable, ITargetManager targetManager,
@@ -74,8 +67,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         _gameGui = gameGui;
         _framework = framework;
         _clientState = clientState;
-        _objectTable = objectTable;
-        _targetManager = targetManager;
+        ITargetManager targetManager1 = targetManager;
         _condition = condition;
         _commandManager = commandManager;
         _pluginLog = pluginLog;
@@ -83,36 +75,29 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
 
         _gameStrings = new GameStrings(dataManager, _pluginLog);
         _externalPluginHandler = new ExternalPluginHandler(_pluginInterface, _pluginLog);
+        _gameFunctions = new GameFunctions(objectTable, _clientState, targetManager, dataManager,
+            _externalPluginHandler, _pluginLog);
         _configuration = (Configuration?)_pluginInterface.GetPluginConfig() ?? new Configuration();
         _gcRewardsCache = new GcRewardsCache(dataManager);
         _iconCache = new IconCache(textureProvider);
-        _itemCache = new ItemCache(dataManager);
-        _configWindow = new ConfigWindow(_pluginInterface, this, _configuration, _gcRewardsCache, _clientState, _pluginLog, _iconCache);
-        _windowSystem.AddWindow(_configWindow);
-        _turnInWindow = new TurnInWindow(this, _pluginInterface, _configuration, _condition, _clientState, _gcRewardsCache, _configWindow, _iconCache);
-        _windowSystem.AddWindow(_turnInWindow);
+        var itemCache = new ItemCache(dataManager);
 
-        _gcRankInfo = dataManager.GetExcelSheet<GrandCompanyRank>()!.Where(x => x.RowId > 0)
-            .ToDictionary(x => x.RowId, x => new GcRankInfo
-            {
-                NameTwinAddersMale = ExtractRankName<GCRankGridaniaMaleText>(dataManager, x.RowId, r => r.Singular),
-                NameTwinAddersFemale = ExtractRankName<GCRankGridaniaFemaleText>(dataManager, x.RowId, r => r.Singular),
-                NameMaelstromMale = ExtractRankName<GCRankLimsaMaleText>(dataManager, x.RowId, r => r.Singular),
-                NameMaelstromFemale = ExtractRankName<GCRankLimsaFemaleText>(dataManager, x.RowId, r => r.Singular),
-                NameImmortalFlamesMale = ExtractRankName<GCRankUldahMaleText>(dataManager, x.RowId, r => r.Singular),
-                NameImmortalFlamesFemale = ExtractRankName<GCRankUldahFemaleText>(dataManager, x.RowId, r => r.Singular),
-                MaxSeals = x.MaxSeals,
-                RequiredSeals = x.RequiredSeals,
-                RequiredHuntingLog = x.Unknown10,
-            })
-            .AsReadOnly();
+        _exchangeHandler = new ExchangeHandler(this, _gameFunctions, targetManager1, _gameGui, _chatGui, _pluginLog);
+        _supplyHandler = new SupplyHandler(this, _gameFunctions, targetManager1, _gameGui, _chatGui, itemCache,
+            _pluginLog);
+
+        _configWindow = new ConfigWindow(_pluginInterface, this, _configuration, _gcRewardsCache, _clientState,
+            _pluginLog, _iconCache, _gameFunctions);
+        _windowSystem.AddWindow(_configWindow);
+        _turnInWindow = new TurnInWindow(this, _pluginInterface, _configuration, _condition, _clientState,
+            _gcRewardsCache, _configWindow, _iconCache, _gameFunctions);
+        _windowSystem.AddWindow(_turnInWindow);
 
         _framework.Update += FrameworkUpdate;
         _pluginInterface.UiBuilder.Draw += _windowSystem.Draw;
         _pluginInterface.UiBuilder.OpenConfigUi += _configWindow.Toggle;
         _clientState.Login += Login;
         _clientState.Logout += Logout;
-        _clientState.TerritoryChanged += TerritoryChanged;
         _chatGui.ChatMessage += ChatMessage;
         _commandManager.AddHandler("/deliveroo", new CommandInfo(ProcessCommand)
         {
@@ -129,13 +114,8 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         _addonLifecycle.RegisterListener(AddonEvent.PostSetup, "SelectYesno", SelectYesNoPostSetup);
     }
 
-    private static string ExtractRankName<T>(IDataManager dataManager, uint rankId, Func<T, Lumina.Text.SeString> func)
-        where T : ExcelRow
-    {
-        return func(dataManager.GetExcelSheet<T>()!.GetRow(rankId)!).ToString();
-    }
-
-    private void ChatMessage(XivChatType type, uint senderId, ref SeString sender, ref SeString message, ref bool isHandled)
+    private void ChatMessage(XivChatType type, uint senderId, ref SeString sender, ref SeString message,
+        ref bool isHandled)
     {
         if (_configuration.PauseAtRank <= 0)
             return;
@@ -175,6 +155,20 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         }
     }
 
+    internal DateTime ContinueAt { private get; set; } = DateTime.MinValue;
+    internal List<PurchaseItemRequest> ItemsToPurchaseNow { get; set; } = new();
+    internal int LastTurnInListSize { get; set; } = int.MaxValue;
+
+    internal bool TurnInState
+    {
+        set => _turnInWindow.State = value;
+    }
+
+    internal string TurnInError
+    {
+        set => _turnInWindow.Error = value;
+    }
+
     public int EffectiveReservedSealCount
     {
         get
@@ -182,7 +176,8 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
             if (CharacterConfiguration is { IgnoreMinimumSealsToKeep: true })
                 return 0;
 
-            return _configuration.ReserveDifferentSealCountAtMaxRank && GetSealCap() == MaxSealCap
+            return _configuration.ReserveDifferentSealCountAtMaxRank &&
+                   _gameFunctions.GetSealCap() == _gameFunctions.MaxSealCap
                 ? _configuration.ReservedSealCountAtMaxRank
                 : _configuration.ReservedSealCount;
         }
@@ -224,13 +219,6 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
     private void Logout()
     {
         CharacterConfiguration = null;
-        _retainerItemCache.Clear();
-    }
-
-    private void TerritoryChanged(ushort territoryType)
-    {
-        // there is no GC area that is in the same zone as a retainer bell, so this should be often enough.
-        _retainerItemCache.Clear();
     }
 
     private unsafe void FrameworkUpdate(IFramework f)
@@ -239,8 +227,9 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         if (!_clientState.IsLoggedIn ||
             _clientState.TerritoryType is not 128 and not 130 and not 132 ||
             _condition[ConditionFlag.OccupiedInCutSceneEvent] ||
-            GetDistanceToNpc(GetQuartermasterId(), out GameObject? quartermaster) >= 7f ||
-            GetDistanceToNpc(GetPersonnelOfficerId(), out GameObject? personnelOfficer) >= 7f ||
+            _gameFunctions.GetDistanceToNpc(_gameFunctions.GetQuartermasterId(), out GameObject? quartermaster) >= 7f ||
+            _gameFunctions.GetDistanceToNpc(_gameFunctions.GetPersonnelOfficerId(), out GameObject? personnelOfficer) >=
+            7f ||
             CharacterConfiguration is { DisableForCharacter: true } ||
             _configWindow.IsOpen)
         {
@@ -252,10 +241,10 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
                 CurrentStage = Stage.Stopped;
             }
         }
-        else if (DateTime.Now > _continueAt)
+        else if (DateTime.Now > ContinueAt)
         {
             _turnInWindow.IsOpen = true;
-            _turnInWindow.Multiplier = GetSealMultiplier();
+            _turnInWindow.Multiplier = _gameFunctions.GetSealMultiplier();
 
             if (!_turnInWindow.State)
             {
@@ -270,23 +259,25 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
             else if (_turnInWindow.State && CurrentStage == Stage.Stopped)
             {
                 CurrentStage = Stage.TargetPersonnelOfficer;
-                _itemsToPurchaseNow = _turnInWindow.SelectedItems;
-                ResetTurnInErrorHandling();
-                if (_itemsToPurchaseNow.Count > 0)
+                ItemsToPurchaseNow = _turnInWindow.SelectedItems;
+                _supplyHandler.ResetTurnInErrorHandling();
+                if (ItemsToPurchaseNow.Count > 0)
                 {
                     _pluginLog.Information("Items to purchase:");
-                    foreach (var item in _itemsToPurchaseNow)
+                    foreach (var item in ItemsToPurchaseNow)
                         _pluginLog.Information($"  {item.Name} (limit = {item.EffectiveLimit})");
                 }
                 else
                     _pluginLog.Information("No items to purchase configured or available");
 
 
-                var nextItem = GetNextItemToPurchase();
-                if (nextItem != null && GetCurrentSealCount() >= EffectiveReservedSealCount + nextItem.SealCost)
+                var nextItem = _exchangeHandler.GetNextItemToPurchase();
+                if (nextItem != null && _gameFunctions.GetCurrentSealCount() >=
+                    EffectiveReservedSealCount + nextItem.SealCost)
                     CurrentStage = Stage.TargetQuartermaster;
 
-                if (_gameGui.TryGetAddonByName<AddonGrandCompanySupplyList>("GrandCompanySupplyList", out var gcSupplyList) &&
+                if (_gameGui.TryGetAddonByName<AddonGrandCompanySupplyList>("GrandCompanySupplyList",
+                        out var gcSupplyList) &&
                     LAddon.IsAddonReady(&gcSupplyList->AtkUnitBase))
                     CurrentStage = Stage.SelectExpertDeliveryTab;
 
@@ -301,7 +292,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
             switch (CurrentStage)
             {
                 case Stage.TargetPersonnelOfficer:
-                    InteractWithPersonnelOfficer(personnelOfficer!, quartermaster!);
+                    _supplyHandler.InteractWithPersonnelOfficer(personnelOfficer!, quartermaster!);
                     break;
 
                 case Stage.OpenGcSupply:
@@ -309,19 +300,19 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
                     break;
 
                 case Stage.SelectExpertDeliveryTab:
-                    SelectExpertDeliveryTab();
+                    _supplyHandler.SelectExpertDeliveryTab();
                     break;
 
                 case Stage.SelectItemToTurnIn:
-                    SelectItemToTurnIn();
+                    _supplyHandler.SelectItemToTurnIn();
                     break;
 
                 case Stage.TurnInSelected:
-                    TurnInSelectedItem();
+                    _supplyHandler.TurnInSelectedItem();
                     break;
 
                 case Stage.FinalizeTurnIn:
-                    FinalizeTurnInItem();
+                    _supplyHandler.FinalizeTurnInItem();
                     break;
 
                 case Stage.CloseGcSupplySelectString:
@@ -333,23 +324,23 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
                     break;
 
                 case Stage.CloseGcSupplyWindowThenStop:
-                    CloseGcSupplyWindow();
+                    _supplyHandler.CloseGcSupplyWindow();
                     break;
 
                 case Stage.TargetQuartermaster:
-                    InteractWithQuartermaster(personnelOfficer!, quartermaster!);
+                    _exchangeHandler.InteractWithQuartermaster(personnelOfficer!, quartermaster!);
                     break;
 
                 case Stage.SelectRewardTier:
-                    SelectRewardTier();
+                    _exchangeHandler.SelectRewardTier();
                     break;
 
                 case Stage.SelectRewardSubCategory:
-                    SelectRewardSubCategory();
+                    _exchangeHandler.SelectRewardSubCategory();
                     break;
 
                 case Stage.SelectReward:
-                    SelectReward();
+                    _exchangeHandler.SelectReward();
                     break;
 
                 case Stage.ConfirmReward:
@@ -357,7 +348,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
                     break;
 
                 case Stage.CloseGcExchange:
-                    CloseGcExchange();
+                    _exchangeHandler.CloseGcExchange();
                     break;
 
                 case Stage.RequestStop:
@@ -383,15 +374,13 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
 
         _commandManager.RemoveHandler("/deliveroo");
         _chatGui.ChatMessage -= ChatMessage;
-        _clientState.TerritoryChanged -= TerritoryChanged;
         _clientState.Logout -= Logout;
         _clientState.Login -= Login;
         _pluginInterface.UiBuilder.OpenConfigUi -= _configWindow.Toggle;
         _pluginInterface.UiBuilder.Draw -= _windowSystem.Draw;
         _framework.Update -= FrameworkUpdate;
 
-        _externalPluginHandler.Restore();
-
+        _gameFunctions.Dispose();
         _externalPluginHandler.Dispose();
         _iconCache.Dispose();
     }

@@ -46,7 +46,6 @@ partial class DeliverooPlugin
             _pluginLog.Verbose($"  Choice {i} → {text}");
             if (text == desiredText)
             {
-
                 _pluginLog.Information($"Selecting choice {i} ({text})");
                 addonSelectString->AtkUnitBase.FireCallbackInt(i);
 
@@ -60,13 +59,13 @@ partial class DeliverooPlugin
 
     private void OpenGcSupplySelectStringFollowUp()
     {
-        ResetTurnInErrorHandling();
+        _supplyHandler.ResetTurnInErrorHandling();
         CurrentStage = Stage.SelectExpertDeliveryTab;
     }
 
     private void CloseGcSupplySelectStringFollowUp()
     {
-        if (GetNextItemToPurchase() == null)
+        if (_exchangeHandler.GetNextItemToPurchase() == null)
         {
             _turnInWindow.State = false;
             CurrentStage = Stage.RequestStop;
@@ -74,26 +73,27 @@ partial class DeliverooPlugin
         else
         {
             // you can occasionally get a 'not enough seals' warning lol
-            _continueAt = DateTime.Now.AddSeconds(1);
+            ContinueAt = DateTime.Now.AddSeconds(1);
             CurrentStage = Stage.TargetQuartermaster;
         }
     }
 
     private void CloseGcSupplySelectStringThenStopFollowUp()
     {
-        if (GetNextItemToPurchase() == null)
+        if (_exchangeHandler.GetNextItemToPurchase() == null)
         {
             _turnInWindow.State = false;
             CurrentStage = Stage.RequestStop;
         }
-        else if (GetCurrentSealCount() <= EffectiveReservedSealCount + GetNextItemToPurchase()!.SealCost)
+        else if (_gameFunctions.GetCurrentSealCount() <=
+                 EffectiveReservedSealCount + _exchangeHandler.GetNextItemToPurchase()!.SealCost)
         {
             _turnInWindow.State = false;
             CurrentStage = Stage.RequestStop;
         }
         else
         {
-            _continueAt = DateTime.Now.AddSeconds(1);
+            ContinueAt = DateTime.Now.AddSeconds(1);
             CurrentStage = Stage.TargetQuartermaster;
         }
     }

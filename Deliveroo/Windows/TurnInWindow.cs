@@ -52,12 +52,13 @@ internal sealed class TurnInWindow : LWindow
     private readonly GcRewardsCache _gcRewardsCache;
     private readonly ConfigWindow _configWindow;
     private readonly IconCache _iconCache;
+    private readonly GameFunctions _gameFunctions;
 
     private bool _state;
 
     public TurnInWindow(DeliverooPlugin plugin, DalamudPluginInterface pluginInterface, Configuration configuration,
         ICondition condition, IClientState clientState, GcRewardsCache gcRewardsCache, ConfigWindow configWindow,
-        IconCache iconCache)
+        IconCache iconCache, GameFunctions gameFunctions)
         : base("GC Delivery###DeliverooTurnIn")
     {
         _plugin = plugin;
@@ -68,6 +69,7 @@ internal sealed class TurnInWindow : LWindow
         _gcRewardsCache = gcRewardsCache;
         _configWindow = configWindow;
         _iconCache = iconCache;
+        _gameFunctions = gameFunctions;
 
         Position = new Vector2(100, 100);
         PositionCondition = ImGuiCond.FirstUseEver;
@@ -128,11 +130,11 @@ internal sealed class TurnInWindow : LWindow
     {
         get
         {
-            GrandCompany grandCompany = _plugin.GetGrandCompany();
+            GrandCompany grandCompany = _gameFunctions.GetGrandCompany();
             if (grandCompany == GrandCompany.None)
                 return new List<PurchaseItemRequest>();
 
-            var rank = _plugin.GetGrandCompanyRank();
+            var rank = _gameFunctions.GetGrandCompanyRank();
             return ItemsWrapper.GetItemsToPurchase()
                 .Where(x => x.ItemId != GcRewardItem.None.ItemId)
                 .Where(x => x.Enabled)
@@ -176,7 +178,7 @@ internal sealed class TurnInWindow : LWindow
 
     public override unsafe void Draw()
     {
-        GrandCompany grandCompany = _plugin.GetGrandCompany();
+        GrandCompany grandCompany = _gameFunctions.GetGrandCompany();
         if (grandCompany == GrandCompany.None)
         {
             // not sure we should ever get here
@@ -184,7 +186,7 @@ internal sealed class TurnInWindow : LWindow
             return;
         }
 
-        if (_plugin.GetGrandCompanyRank() < 6)
+        if (_gameFunctions.GetGrandCompanyRank() < 6)
         {
             State = false;
             ImGui.TextColored(ImGuiColors.DalamudRed, "You do not have the required rank for Expert Delivery.");
@@ -262,18 +264,19 @@ internal sealed class TurnInWindow : LWindow
 
     private unsafe void DrawNextRankPrequesites()
     {
-        string? rankName = _plugin.GetNextGrandCompanyRankName();
+        string? rankName = _gameFunctions.GetNextGrandCompanyRankName();
         if (rankName != null)
         {
-            int currentSeals = _plugin.GetCurrentSealCount();
-            uint requiredSeals = _plugin.GetSealsRequiredForNextRank();
+            int currentSeals = _gameFunctions.GetCurrentSealCount();
+            uint requiredSeals = _gameFunctions.GetSealsRequiredForNextRank();
 
-            int currentHuntingLog = MonsterNoteManager.Instance()->RankDataArraySpan[(int)_plugin.GetGrandCompany() + 7]
-                .Rank;
-            byte requiredHuntingLog = _plugin.GetRequiredHuntingLogForNextRank();
+            int currentHuntingLog =
+                MonsterNoteManager.Instance()->RankDataArraySpan[(int)_gameFunctions.GetGrandCompany() + 7]
+                    .Rank;
+            byte requiredHuntingLog = _gameFunctions.GetRequiredHuntingLogForNextRank();
 
             bool enoughSeals = currentSeals >= requiredSeals;
-            bool enoughHuntingLog = requiredHuntingLog >= currentHuntingLog;
+            bool enoughHuntingLog = currentHuntingLog >= requiredHuntingLog;
 
             if (enoughSeals && enoughHuntingLog)
                 ImGui.TextColored(ImGuiColors.HealerGreen, $"You meet all requirements to rank up to {rankName}.");
@@ -318,8 +321,8 @@ internal sealed class TurnInWindow : LWindow
         foreach (uint itemId in _configuration.ItemsAvailableForPurchase)
         {
             var gcReward = _gcRewardsCache.GetReward(itemId);
-            int itemCountWithoutRetainers = _plugin.GetItemCount(itemId, false);
-            int itemCountWithRetainers = _plugin.GetItemCount(itemId, true);
+            int itemCountWithoutRetainers = _gameFunctions.GetItemCount(itemId, false);
+            int itemCountWithRetainers = _gameFunctions.GetItemCount(itemId, true);
             string itemNameWithoutRetainers = gcReward.Name;
             string itemNameWithRetainers = gcReward.Name;
             if (itemCountWithoutRetainers > 0)
@@ -479,7 +482,7 @@ internal sealed class TurnInWindow : LWindow
                         ImGui.TextColored(ImGuiColors.DalamudRed,
                             "This item will be skipped, as you are in the wrong Grand Company.");
                     }
-                    else if (comboItem.Item.RequiredRank > _plugin.GetGrandCompanyRank())
+                    else if (comboItem.Item.RequiredRank > _gameFunctions.GetGrandCompanyRank())
                     {
                         ImGui.TextColored(ImGuiColors.DalamudRed,
                             "This item will be skipped, your rank isn't high enough to buy it.");

@@ -19,7 +19,7 @@ partial class DeliverooPlugin
         if (CurrentStage == Stage.ConfirmReward &&
             _gameStrings.ExchangeItems.IsMatch(text))
         {
-            PurchaseItemRequest? item = GetNextItemToPurchase();
+            PurchaseItemRequest? item = _exchangeHandler.GetNextItemToPurchase();
             if (item == null)
             {
                 addonSelectYesNo->AtkUnitBase.FireCallbackInt(1);
@@ -33,12 +33,12 @@ partial class DeliverooPlugin
             item.OnPurchase?.Invoke((int)item.TemporaryPurchaseQuantity);
             item.TemporaryPurchaseQuantity = 0;
 
-            var nextItem = GetNextItemToPurchase(item);
-            if (nextItem != null && GetCurrentSealCount() >= EffectiveReservedSealCount + nextItem.SealCost)
+            var nextItem = _exchangeHandler.GetNextItemToPurchase(item);
+            if (nextItem != null && _gameFunctions.GetCurrentSealCount() >= EffectiveReservedSealCount + nextItem.SealCost)
                 CurrentStage = Stage.SelectRewardTier;
             else
                 CurrentStage = Stage.CloseGcExchange;
-            _continueAt = DateTime.Now.AddSeconds(0.5);
+            ContinueAt = DateTime.Now.AddSeconds(0.5);
         }
         else if (CurrentStage == Stage.TurnInSelected &&
                  _gameStrings.TradeHighQualityItem == text)

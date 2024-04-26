@@ -1,34 +1,54 @@
 ﻿using System;
+using Dalamud.Game.ClientState.Objects;
 using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Game.Text.SeStringHandling.Payloads;
+using Dalamud.Plugin.Services;
 using Deliveroo.GameData;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using LLib.GameUI;
 using ValueType = FFXIVClientStructs.FFXIV.Component.GUI.ValueType;
 
-namespace Deliveroo;
+namespace Deliveroo.Handlers;
 
-partial class DeliverooPlugin
+internal sealed class ExchangeHandler
 {
-    private void InteractWithQuartermaster(GameObject personnelOfficer, GameObject quartermaster)
+    private readonly DeliverooPlugin _plugin;
+    private readonly GameFunctions _gameFunctions;
+    private readonly ITargetManager _targetManager;
+    private readonly IGameGui _gameGui;
+    private readonly IChatGui _chatGui;
+    private readonly IPluginLog _pluginLog;
+
+    public ExchangeHandler(DeliverooPlugin plugin, GameFunctions gameFunctions, ITargetManager targetManager,
+        IGameGui gameGui, IChatGui chatGui, IPluginLog pluginLog)
     {
-        if (GetCurrentSealCount() < EffectiveReservedSealCount)
+        _plugin = plugin;
+        _gameFunctions = gameFunctions;
+        _targetManager = targetManager;
+        _gameGui = gameGui;
+        _chatGui = chatGui;
+        _pluginLog = pluginLog;
+    }
+
+    public void InteractWithQuartermaster(GameObject personnelOfficer, GameObject quartermaster)
+    {
+        if (_gameFunctions.GetCurrentSealCount() < _plugin.EffectiveReservedSealCount)
         {
-            CurrentStage = Stage.RequestStop;
+            _plugin.CurrentStage = Stage.RequestStop;
             return;
         }
 
         if (_targetManager.Target == personnelOfficer)
             return;
 
-        InteractWithTarget(quartermaster);
-        CurrentStage = Stage.SelectRewardTier;
+        _gameFunctions.InteractWithTarget(quartermaster);
+        _plugin.CurrentStage = Stage.SelectRewardTier;
     }
 
-    private PurchaseItemRequest? GetNextItemToPurchase(PurchaseItemRequest? previousRequest = null)
+    public PurchaseItemRequest? GetNextItemToPurchase(PurchaseItemRequest? previousRequest = null)
     {
-        foreach (PurchaseItemRequest request in _itemsToPurchaseNow)
+        foreach (PurchaseItemRequest request in _plugin.ItemsToPurchaseNow)
         {
             int toBuy = 0;
             if (request == previousRequest)
@@ -40,7 +60,8 @@ partial class DeliverooPlugin
 
             if (request.Type == Configuration.PurchaseType.KeepStocked)
             {
-                if (GetItemCount(request.ItemId, request.CheckRetainerInventory) + toBuy < request.EffectiveLimit)
+                if (_gameFunctions.GetItemCount(request.ItemId, request.CheckRetainerInventory) + toBuy <
+                    request.EffectiveLimit)
                     return request;
             }
             else
@@ -53,12 +74,12 @@ partial class DeliverooPlugin
         return null;
     }
 
-    private unsafe void SelectRewardTier()
+    public unsafe void SelectRewardTier()
     {
         PurchaseItemRequest? item = GetNextItemToPurchase();
         if (item == null)
         {
-            CurrentStage = Stage.CloseGcExchange;
+            _plugin.CurrentStage = Stage.CloseGcExchange;
             return;
         }
 
@@ -79,17 +100,17 @@ partial class DeliverooPlugin
                 new() { Type = 0, Int = 0 }
             };
             addonExchange->FireCallback(9, selectRank);
-            _continueAt = DateTime.Now.AddSeconds(0.5);
-            CurrentStage = Stage.SelectRewardSubCategory;
+            _plugin.ContinueAt = DateTime.Now.AddSeconds(0.5);
+            _plugin.CurrentStage = Stage.SelectRewardSubCategory;
         }
     }
 
-    private unsafe void SelectRewardSubCategory()
+    public unsafe void SelectRewardSubCategory()
     {
         PurchaseItemRequest? item = GetNextItemToPurchase();
         if (item == null)
         {
-            CurrentStage = Stage.CloseGcExchange;
+            _plugin.CurrentStage = Stage.CloseGcExchange;
             return;
         }
 
@@ -110,25 +131,25 @@ partial class DeliverooPlugin
                 new() { Type = 0, Int = 0 }
             };
             addonExchange->FireCallback(9, selectType);
-            _continueAt = DateTime.Now.AddSeconds(0.5);
-            CurrentStage = Stage.SelectReward;
+            _plugin.ContinueAt = DateTime.Now.AddSeconds(0.5);
+            _plugin.CurrentStage = Stage.SelectReward;
         }
     }
 
-    private unsafe void SelectReward()
+    public unsafe void SelectReward()
     {
         if (_gameGui.TryGetAddonByName<AtkUnitBase>("GrandCompanyExchange", out var addonExchange) &&
             LAddon.IsAddonReady(addonExchange))
         {
             if (SelectRewardItem(addonExchange))
             {
-                _continueAt = DateTime.Now.AddSeconds(0.2);
-                CurrentStage = Stage.ConfirmReward;
+                _plugin.ContinueAt = DateTime.Now.AddSeconds(0.2);
+                _plugin.CurrentStage = Stage.ConfirmReward;
             }
             else
             {
-                _continueAt = DateTime.Now.AddSeconds(0.2);
-                CurrentStage = Stage.CloseGcExchange;
+                _plugin.ContinueAt = DateTime.Now.AddSeconds(0.2);
+                _plugin.CurrentStage = Stage.CloseGcExchange;
             }
         }
     }
@@ -146,9 +167,11 @@ partial class DeliverooPlugin
             if (itemId == item.ItemId)
             {
                 _pluginLog.Information($"Selecting item {itemId}, {i}");
-                long toBuy = (GetCurrentSealCount() - EffectiveReservedSealCount) / item.SealCost;
+                long toBuy = (_gameFunctions.GetCurrentSealCount() - _plugin.EffectiveReservedSealCount) /
+                             item.SealCost;
                 if (item.Type == Configuration.PurchaseType.KeepStocked)
-                    toBuy = Math.Min(toBuy, item.EffectiveLimit - GetItemCount(item.ItemId, item.CheckRetainerInventory));
+                    toBuy = Math.Min(toBuy,
+                        item.EffectiveLimit - _gameFunctions.GetItemCount(item.ItemId, item.CheckRetainerInventory));
                 else
                     toBuy = Math.Min(toBuy, item.EffectiveLimit);
 
@@ -186,7 +209,7 @@ partial class DeliverooPlugin
         return false;
     }
 
-    private unsafe void CloseGcExchange()
+    public unsafe void CloseGcExchange()
     {
         if (_gameGui.TryGetAddonByName<AtkUnitBase>("GrandCompanyExchange", out var addonExchange) &&
             LAddon.IsAddonReady(addonExchange))
@@ -194,15 +217,15 @@ partial class DeliverooPlugin
             addonExchange->FireCallbackInt(-1);
 
             // If we just turned in the final item, there's no need to talk to the personnel officer again
-            if (_lastTurnInListSize == 1)
+            if (_plugin.LastTurnInListSize == 1)
             {
-                _turnInWindow.State = false;
-                CurrentStage = Stage.RequestStop;
+                _plugin.TurnInState = false;
+                _plugin.CurrentStage = Stage.RequestStop;
             }
             else
             {
-                _continueAt = DateTime.Now.AddSeconds(1);
-                CurrentStage = Stage.TargetPersonnelOfficer;
+                _plugin.ContinueAt = DateTime.Now.AddSeconds(1);
+                _plugin.CurrentStage = Stage.TargetPersonnelOfficer;
             }
         }
     }

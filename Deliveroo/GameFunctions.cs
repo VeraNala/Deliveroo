@@ -1,22 +1,85 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Runtime.InteropServices;
+using Dalamud.Game.ClientState.Objects;
 using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Memory;
+using Dalamud.Plugin.Services;
+using Deliveroo.External;
 using Deliveroo.GameData;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Common.Math;
+using Lumina.Excel;
+using Lumina.Excel.GeneratedSheets;
+using GrandCompany = FFXIVClientStructs.FFXIV.Client.UI.Agent.GrandCompany;
 
 namespace Deliveroo;
 
-partial class DeliverooPlugin
+internal sealed class GameFunctions : IDisposable
 {
-    private unsafe void InteractWithTarget(GameObject obj)
+    private readonly IObjectTable _objectTable;
+    private readonly IClientState _clientState;
+    private readonly ITargetManager _targetManager;
+    private readonly ExternalPluginHandler _externalPluginHandler;
+    private readonly IPluginLog _pluginLog;
+    private readonly ReadOnlyDictionary<uint, GcRankInfo> _gcRankInfo;
+    private readonly Dictionary<uint, int> _retainerItemCache = new();
+
+    public GameFunctions(IObjectTable objectTable, IClientState clientState, ITargetManager targetManager,
+        IDataManager dataManager, ExternalPluginHandler externalPluginHandler, IPluginLog pluginLog)
+    {
+        _objectTable = objectTable;
+        _clientState = clientState;
+        _targetManager = targetManager;
+        _externalPluginHandler = externalPluginHandler;
+        _pluginLog = pluginLog;
+
+
+        _gcRankInfo = dataManager.GetExcelSheet<GrandCompanyRank>()!.Where(x => x.RowId > 0)
+            .ToDictionary(x => x.RowId, x => new GcRankInfo
+            {
+                NameTwinAddersMale = ExtractRankName<GCRankGridaniaMaleText>(dataManager, x.RowId, r => r.Singular),
+                NameTwinAddersFemale = ExtractRankName<GCRankGridaniaFemaleText>(dataManager, x.RowId, r => r.Singular),
+                NameMaelstromMale = ExtractRankName<GCRankLimsaMaleText>(dataManager, x.RowId, r => r.Singular),
+                NameMaelstromFemale = ExtractRankName<GCRankLimsaFemaleText>(dataManager, x.RowId, r => r.Singular),
+                NameImmortalFlamesMale = ExtractRankName<GCRankUldahMaleText>(dataManager, x.RowId, r => r.Singular),
+                NameImmortalFlamesFemale =
+                    ExtractRankName<GCRankUldahFemaleText>(dataManager, x.RowId, r => r.Singular),
+                MaxSeals = x.MaxSeals,
+                RequiredSeals = x.RequiredSeals,
+                RequiredHuntingLog = x.Unknown10,
+            })
+            .AsReadOnly();
+
+        _clientState.Logout += Logout;
+        _clientState.TerritoryChanged += TerritoryChanged;
+    }
+
+    private static string ExtractRankName<T>(IDataManager dataManager, uint rankId, Func<T, Lumina.Text.SeString> func)
+        where T : ExcelRow
+    {
+        return func(dataManager.GetExcelSheet<T>()!.GetRow(rankId)!).ToString();
+    }
+
+
+    private void Logout()
+    {
+        _retainerItemCache.Clear();
+    }
+
+    private void TerritoryChanged(ushort territoryType)
+    {
+        // there is no GC area that is in the same zone as a retainer bell, so this should be often enough.
+        _retainerItemCache.Clear();
+    }
+
+    public unsafe void InteractWithTarget(GameObject obj)
     {
         _pluginLog.Information($"Setting target to {obj}");
         if (_targetManager.Target == null || _targetManager.Target != obj)
@@ -28,7 +91,7 @@ partial class DeliverooPlugin
             (FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject*)obj.Address, false);
     }
 
-    internal unsafe int GetCurrentSealCount()
+    public unsafe int GetCurrentSealCount()
     {
         InventoryManager* inventoryManager = InventoryManager.Instance();
         switch ((GrandCompany)PlayerState.Instance()->GrandCompany)
@@ -44,11 +107,11 @@ partial class DeliverooPlugin
         }
     }
 
-    internal unsafe GrandCompany GetGrandCompany() => (GrandCompany)PlayerState.Instance()->GrandCompany;
+    public unsafe GrandCompany GetGrandCompany() => (GrandCompany)PlayerState.Instance()->GrandCompany;
 
-    internal unsafe byte GetGrandCompanyRank() => PlayerState.Instance()->GetGrandCompanyRank();
+    public unsafe byte GetGrandCompanyRank() => PlayerState.Instance()->GetGrandCompanyRank();
 
-    private float GetDistanceToNpc(int npcId, out GameObject? o)
+    public float GetDistanceToNpc(int npcId, out GameObject? o)
     {
         foreach (var obj in _objectTable)
         {
@@ -66,12 +129,12 @@ partial class DeliverooPlugin
         return float.MaxValue;
     }
 
-    private static int GetNpcId(GameObject obj)
+    public static int GetNpcId(GameObject obj)
     {
         return Marshal.ReadInt32(obj.Address + 128);
     }
 
-    private int GetPersonnelOfficerId()
+    public int GetPersonnelOfficerId()
     {
         return GetGrandCompany() switch
         {
@@ -82,7 +145,7 @@ partial class DeliverooPlugin
         };
     }
 
-    private int GetQuartermasterId()
+    public int GetQuartermasterId()
     {
         return GetGrandCompany() switch
         {
@@ -93,17 +156,17 @@ partial class DeliverooPlugin
         };
     }
 
-    private uint GetSealCap() => _gcRankInfo.TryGetValue(GetGrandCompanyRank(), out var rank) ? rank.MaxSeals : 0;
+    public uint GetSealCap() => _gcRankInfo.TryGetValue(GetGrandCompanyRank(), out var rank) ? rank.MaxSeals : 0;
 
     public uint MaxSealCap => _gcRankInfo[11].MaxSeals;
 
-    internal uint GetSealsRequiredForNextRank()
+    public uint GetSealsRequiredForNextRank()
         => _gcRankInfo.GetValueOrDefault(GetGrandCompanyRank())?.RequiredSeals ?? 0;
 
-    internal byte GetRequiredHuntingLogForNextRank()
+    public byte GetRequiredHuntingLogForNextRank()
         => _gcRankInfo.GetValueOrDefault(GetGrandCompanyRank() + 1u)?.RequiredHuntingLog ?? 0;
 
-    internal string? GetNextGrandCompanyRankName()
+    public string? GetNextGrandCompanyRankName()
     {
         bool female = _clientState.LocalPlayer!.Customize[(int)CustomizeIndex.Gender] == 1;
         GrandCompany grandCompany = GetGrandCompany();
@@ -128,7 +191,7 @@ partial class DeliverooPlugin
         return count;
     }
 
-    private decimal GetSealMultiplier()
+    public decimal GetSealMultiplier()
     {
         // priority seal allowance
         if (_clientState.LocalPlayer!.StatusList.Any(x => x.StatusId == 1078))
@@ -147,7 +210,7 @@ partial class DeliverooPlugin
     /// <summary>
     /// This returns ALL items that can be turned in, regardless of filter settings.
     /// </summary>
-    private unsafe List<TurnInItem> BuildTurnInList(AgentGrandCompanySupply* agent)
+    public unsafe List<TurnInItem> BuildTurnInList(AgentGrandCompanySupply* agent)
     {
         List<TurnInItem> list = new();
         for (int i = 11 /* skip over provisioning items */; i < agent->NumItems; ++i)
@@ -169,5 +232,11 @@ partial class DeliverooPlugin
             .ThenBy(x => x.ItemUiCategory)
             .ThenBy(x => x.ItemId)
             .ToList();
+    }
+
+    public void Dispose()
+    {
+        _clientState.TerritoryChanged -= TerritoryChanged;
+        _clientState.Logout -= Logout;
     }
 }

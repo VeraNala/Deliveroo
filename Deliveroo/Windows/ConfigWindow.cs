@@ -25,13 +25,15 @@ internal sealed class ConfigWindow : LWindow
     private readonly IClientState _clientState;
     private readonly IPluginLog _pluginLog;
     private readonly IconCache _iconCache;
+    private readonly GameFunctions _gameFunctions;
 
     private readonly IReadOnlyDictionary<uint, GcRewardItem> _itemLookup;
     private string _searchString = string.Empty;
     private uint _dragDropSource;
 
     public ConfigWindow(DalamudPluginInterface pluginInterface, DeliverooPlugin plugin, Configuration configuration,
-        GcRewardsCache gcRewardsCache, IClientState clientState, IPluginLog pluginLog, IconCache iconCache)
+        GcRewardsCache gcRewardsCache, IClientState clientState, IPluginLog pluginLog, IconCache iconCache,
+        GameFunctions gameFunctions)
         : base("Deliveroo - Configuration###DeliverooConfig")
     {
         _pluginInterface = pluginInterface;
@@ -41,6 +43,7 @@ internal sealed class ConfigWindow : LWindow
         _clientState = clientState;
         _pluginLog = pluginLog;
         _iconCache = iconCache;
+        _gameFunctions = gameFunctions;
 
         _itemLookup = _gcRewardsCache.RewardLookup;
 
@@ -76,7 +79,8 @@ internal sealed class ConfigWindow : LWindow
             uint? itemToRemove = null;
             uint? itemToAdd = null;
             int indexToAdd = 0;
-            if (ImGui.BeginChild("Items", new Vector2(-1, -ImGui.GetFrameHeightWithSpacing()), true, ImGuiWindowFlags.NoSavedSettings))
+            if (ImGui.BeginChild("Items", new Vector2(-1, -ImGui.GetFrameHeightWithSpacing()), true,
+                    ImGuiWindowFlags.NoSavedSettings))
             {
                 for (int i = 0; i < _configuration.ItemsAvailableForPurchase.Count; ++i)
                 {
@@ -91,10 +95,12 @@ internal sealed class ConfigWindow : LWindow
                     Vector2 iconSize = new Vector2(ImGui.GetTextLineHeight() + ImGui.GetStyle().ItemSpacing.Y);
                     if (icon != null)
                     {
-                        ImGui.SetCursorPos(pos + new Vector2(iconSize.X + ImGui.GetStyle().FramePadding.X, ImGui.GetStyle().ItemSpacing.Y / 2));
+                        ImGui.SetCursorPos(pos + new Vector2(iconSize.X + ImGui.GetStyle().FramePadding.X,
+                            ImGui.GetStyle().ItemSpacing.Y / 2));
                     }
 
-                    ImGui.Selectable($"{item.Name}{(item.Limited ? $" {SeIconChar.Hyadelyn.ToIconString()}" : "")}", false, ImGuiSelectableFlags.SpanAllColumns);
+                    ImGui.Selectable($"{item.Name}{(item.Limited ? $" {SeIconChar.Hyadelyn.ToIconString()}" : "")}",
+                        false, ImGuiSelectableFlags.SpanAllColumns);
 
                     if (icon != null)
                     {
@@ -168,7 +174,8 @@ internal sealed class ConfigWindow : LWindow
                 bool addFirst = ImGui.InputTextWithHint("", "Filter...", ref _searchString, 256,
                     ImGuiInputTextFlags.AutoSelectAll | ImGuiInputTextFlags.EnterReturnsTrue);
 
-                foreach (var item in comboValues.Where(x => x.Name.Contains(_searchString, StringComparison.OrdinalIgnoreCase)))
+                foreach (var item in comboValues.Where(x =>
+                             x.Name.Contains(_searchString, StringComparison.OrdinalIgnoreCase)))
                 {
                     IDalamudTextureWrap? icon = _iconCache.GetIcon(item.IconId);
                     if (icon != null)
@@ -322,7 +329,7 @@ internal sealed class ConfigWindow : LWindow
             if (ImGui.InputInt("Minimum Seals to keep (e.g. for Squadron Missions)", ref reservedSealCount, 1000))
             {
                 _configuration.ReservedSealCount =
-                    Math.Max(0, Math.Min((int)_plugin.MaxSealCap, reservedSealCount));
+                    Math.Max(0, Math.Min((int)_gameFunctions.MaxSealCap, reservedSealCount));
                 Save();
             }
 
@@ -343,7 +350,7 @@ internal sealed class ConfigWindow : LWindow
                 if (ImGui.InputInt("Minimum seals to keep at max rank", ref reservedSealCountAtMaxRank))
                 {
                     _configuration.ReservedSealCountAtMaxRank = Math.Max(0,
-                        Math.Min((int)_plugin.MaxSealCap, reservedSealCountAtMaxRank));
+                        Math.Min((int)_gameFunctions.MaxSealCap, reservedSealCountAtMaxRank));
                     Save();
                 }
 
