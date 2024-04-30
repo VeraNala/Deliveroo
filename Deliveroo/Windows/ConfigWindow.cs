@@ -382,6 +382,15 @@ internal sealed class ConfigWindow : LWindow
                 Save();
             }
 
+            ImGui.Separator();
+
+            bool disableFrameLimiter = _configuration.DisableFrameLimiter;
+            if (ImGui.Checkbox("Disable the game's frame limiter when turning in items", ref disableFrameLimiter))
+            {
+                _configuration.DisableFrameLimiter = disableFrameLimiter;
+                Save();
+            }
+
             ImGui.EndTabItem();
         }
     }

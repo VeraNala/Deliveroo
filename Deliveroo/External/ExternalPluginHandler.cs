@@ -8,16 +8,22 @@ namespace Deliveroo.External;
 internal sealed class ExternalPluginHandler : IDisposable
 {
     private readonly DalamudPluginInterface _pluginInterface;
+    private readonly IGameConfig _gameConfig;
+    private readonly Configuration _configuration;
     private readonly IPluginLog _pluginLog;
     private readonly DeliverooIpc _deliverooIpc;
     private readonly PandoraIpc _pandoraIpc;
     private readonly AllaganToolsIpc _allaganToolsIpc;
 
     private bool? _pandoraState;
+    private ConfigState? _configState;
 
-    public ExternalPluginHandler(DalamudPluginInterface pluginInterface, IPluginLog pluginLog)
+    public ExternalPluginHandler(DalamudPluginInterface pluginInterface, IGameConfig gameConfig,
+        Configuration configuration, IPluginLog pluginLog)
     {
         _pluginInterface = pluginInterface;
+        _gameConfig = gameConfig;
+        _configuration = configuration;
         _pluginLog = pluginLog;
         _deliverooIpc = new DeliverooIpc(pluginInterface);
         _pandoraIpc = new PandoraIpc(pluginInterface, pluginLog);
@@ -38,6 +44,7 @@ internal sealed class ExternalPluginHandler : IDisposable
         _deliverooIpc.StartTurnIn();
         SaveYesAlreadyState();
         SavePandoraState();
+        SaveGameConfig();
         Saved = true;
     }
 
@@ -57,12 +64,19 @@ internal sealed class ExternalPluginHandler : IDisposable
         _pluginLog.Info($"Previous pandora feature state: {_pandoraState}");
     }
 
+    private void SaveGameConfig()
+    {
+        if (_configuration.DisableFrameLimiter)
+            _configState = new ConfigState(_gameConfig);
+    }
+
     public void Restore()
     {
         if (Saved)
         {
             RestoreYesAlready();
             RestorePandora();
+            RestoreGameConfig();
         }
 
         Saved = false;
@@ -87,10 +101,35 @@ internal sealed class ExternalPluginHandler : IDisposable
             _pandoraIpc.Enable();
     }
 
+    private void RestoreGameConfig()
+    {
+        _configState?.Restore(_gameConfig);
+        _configState = null;
+    }
+
     public void Dispose()
     {
         _deliverooIpc.Dispose();
     }
 
     public uint GetRetainerItemCount(uint itemId) => _allaganToolsIpc.GetRetainerItemCount(itemId);
+
+    private sealed record ConfigState(uint Fps, uint FpsInactive)
+    {
+        private const string ConfigFps = "Fps";
+        private const string ConfigFpsInactive = "FPSInActive";
+
+        public ConfigState(IGameConfig gameConfig)
+        : this(gameConfig.System.GetUInt(ConfigFps), gameConfig.System.GetUInt(ConfigFpsInactive))
+        {
+            gameConfig.System.Set(ConfigFps, 0);
+            gameConfig.System.Set(ConfigFpsInactive, 0);
+        }
+
+        public void Restore(IGameConfig gameConfig)
+        {
+            gameConfig.System.Set(ConfigFps, Fps);
+            gameConfig.System.Set(ConfigFpsInactive, FpsInactive);
+        }
+    }
 }

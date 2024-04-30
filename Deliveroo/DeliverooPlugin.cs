@@ -58,7 +58,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
     public DeliverooPlugin(DalamudPluginInterface pluginInterface, IChatGui chatGui, IGameGui gameGui,
         IFramework framework, IClientState clientState, IObjectTable objectTable, ITargetManager targetManager,
         IDataManager dataManager, ICondition condition, ICommandManager commandManager, IPluginLog pluginLog,
-        IAddonLifecycle addonLifecycle, ITextureProvider textureProvider)
+        IAddonLifecycle addonLifecycle, ITextureProvider textureProvider, IGameConfig gameConfig)
     {
         ArgumentNullException.ThrowIfNull(dataManager);
 
@@ -67,23 +67,22 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         _gameGui = gameGui;
         _framework = framework;
         _clientState = clientState;
-        ITargetManager targetManager1 = targetManager;
         _condition = condition;
         _commandManager = commandManager;
         _pluginLog = pluginLog;
         _addonLifecycle = addonLifecycle;
 
+        _configuration = (Configuration?)_pluginInterface.GetPluginConfig() ?? new Configuration();
         _gameStrings = new GameStrings(dataManager, _pluginLog);
-        _externalPluginHandler = new ExternalPluginHandler(_pluginInterface, _pluginLog);
+        _externalPluginHandler = new ExternalPluginHandler(_pluginInterface, gameConfig, _configuration, _pluginLog);
         _gameFunctions = new GameFunctions(objectTable, _clientState, targetManager, dataManager,
             _externalPluginHandler, _pluginLog);
-        _configuration = (Configuration?)_pluginInterface.GetPluginConfig() ?? new Configuration();
         _gcRewardsCache = new GcRewardsCache(dataManager);
         _iconCache = new IconCache(textureProvider);
         var itemCache = new ItemCache(dataManager);
 
-        _exchangeHandler = new ExchangeHandler(this, _gameFunctions, targetManager1, _gameGui, _chatGui, _pluginLog);
-        _supplyHandler = new SupplyHandler(this, _gameFunctions, targetManager1, _gameGui, _chatGui, itemCache,
+        _exchangeHandler = new ExchangeHandler(this, _gameFunctions, targetManager, _gameGui, _chatGui, _pluginLog);
+        _supplyHandler = new SupplyHandler(this, _gameFunctions, targetManager, _gameGui, _chatGui, itemCache,
             _pluginLog);
 
         _configWindow = new ConfigWindow(_pluginInterface, this, _configuration, _gcRewardsCache, _clientState,
