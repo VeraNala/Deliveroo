@@ -16,7 +16,8 @@ internal sealed class ExternalPluginHandler : IDisposable
     private readonly AllaganToolsIpc _allaganToolsIpc;
 
     private bool? _pandoraState;
-    private ConfigState? _configState;
+    private SystemConfigState? _limitFrameRateWhenClientInactive;
+    private SystemConfigState? _uncapFrameRate;
 
     public ExternalPluginHandler(DalamudPluginInterface pluginInterface, IGameConfig gameConfig,
         Configuration configuration, IPluginLog pluginLog)
@@ -66,8 +67,14 @@ internal sealed class ExternalPluginHandler : IDisposable
 
     private void SaveGameConfig()
     {
-        if (_configuration.DisableFrameLimiter)
-            _configState = new ConfigState(_gameConfig);
+        if (!_configuration.DisableFrameLimiter)
+            return;
+
+        _limitFrameRateWhenClientInactive ??=
+            new SystemConfigState(_gameConfig, SystemConfigState.ConfigFpsInactive, 0);
+
+        if (_configuration.UncapFrameRate)
+            _uncapFrameRate ??= new SystemConfigState(_gameConfig, SystemConfigState.ConfigFps, 0);
     }
 
     public void Restore()
@@ -103,8 +110,11 @@ internal sealed class ExternalPluginHandler : IDisposable
 
     private void RestoreGameConfig()
     {
-        _configState?.Restore(_gameConfig);
-        _configState = null;
+        _uncapFrameRate?.Restore(_gameConfig);
+        _uncapFrameRate = null;
+
+        _limitFrameRateWhenClientInactive?.Restore(_gameConfig);
+        _limitFrameRateWhenClientInactive = null;
     }
 
     public void Dispose()
@@ -114,22 +124,20 @@ internal sealed class ExternalPluginHandler : IDisposable
 
     public uint GetRetainerItemCount(uint itemId) => _allaganToolsIpc.GetRetainerItemCount(itemId);
 
-    private sealed record ConfigState(uint Fps, uint FpsInactive)
+    private sealed record SystemConfigState(string Key, uint OldValue)
     {
-        private const string ConfigFps = "Fps";
-        private const string ConfigFpsInactive = "FPSInActive";
+        public const string ConfigFps = "Fps";
+        public const string ConfigFpsInactive = "FPSInActive";
 
-        public ConfigState(IGameConfig gameConfig)
-        : this(gameConfig.System.GetUInt(ConfigFps), gameConfig.System.GetUInt(ConfigFpsInactive))
+        public SystemConfigState(IGameConfig gameConfig, string key, uint newValue)
+            : this(key, gameConfig.System.GetUInt(key))
         {
-            gameConfig.System.Set(ConfigFps, 0);
-            gameConfig.System.Set(ConfigFpsInactive, 0);
+            gameConfig.System.Set(key, newValue);
         }
 
         public void Restore(IGameConfig gameConfig)
         {
-            gameConfig.System.Set(ConfigFps, Fps);
-            gameConfig.System.Set(ConfigFpsInactive, FpsInactive);
+            gameConfig.System.Set(Key, OldValue);
         }
     }
 }

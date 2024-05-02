@@ -18,6 +18,7 @@ internal sealed class Configuration : IPluginConfiguration
     public int PauseAtRank { get; set; }
     public EBehaviorOnOtherWorld BehaviorOnOtherWorld { get; set; } = EBehaviorOnOtherWorld.Warning;
     public bool DisableFrameLimiter { get; set; } = true;
+    public bool UncapFrameRate { get; set; }
 
     internal sealed class PurchasePriority
     {

@@ -385,12 +385,24 @@ internal sealed class ConfigWindow : LWindow
             ImGui.Separator();
 
             bool disableFrameLimiter = _configuration.DisableFrameLimiter;
-            if (ImGui.Checkbox("Disable the game's frame limiter when turning in items", ref disableFrameLimiter))
+            if (ImGui.Checkbox("Disable the game setting 'Limit frame rate when client is inactive'",
+                    ref disableFrameLimiter))
             {
                 _configuration.DisableFrameLimiter = disableFrameLimiter;
                 Save();
             }
 
+            ImGui.Indent();
+            ImGui.BeginDisabled(!disableFrameLimiter);
+            bool uncapFrameRate = _configuration.UncapFrameRate;
+            if (ImGui.Checkbox("Set frame rate to uncapped", ref uncapFrameRate))
+            {
+                _configuration.UncapFrameRate = uncapFrameRate;
+                Save();
+            }
+
+            ImGui.EndDisabled();
+            ImGui.Unindent();
             ImGui.EndTabItem();
         }
     }
