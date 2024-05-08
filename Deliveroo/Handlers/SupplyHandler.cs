@@ -9,11 +9,10 @@ using Deliveroo.GameData;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
-using LLib;
 using LLib.GameUI;
 using ValueType = FFXIVClientStructs.FFXIV.Component.GUI.ValueType;
 
-namespace Deliveroo;
+namespace Deliveroo.Handlers;
 
 internal sealed class SupplyHandler
 {
@@ -21,20 +20,18 @@ internal sealed class SupplyHandler
     private readonly GameFunctions _gameFunctions;
     private readonly ITargetManager _targetManager;
     private readonly IGameGui _gameGui;
-    private readonly IChatGui _chatGui;
     private readonly ItemCache _itemCache;
     private readonly IPluginLog _pluginLog;
 
     private uint _turnInErrors;
 
     public SupplyHandler(DeliverooPlugin plugin, GameFunctions gameFunctions, ITargetManager targetManager,
-        IGameGui gameGui, IChatGui chatGui, ItemCache itemCache, IPluginLog pluginLog)
+        IGameGui gameGui, ItemCache itemCache, IPluginLog pluginLog)
     {
         _plugin = plugin;
         _gameFunctions = gameFunctions;
         _targetManager = targetManager;
         _gameGui = gameGui;
-        _chatGui = chatGui;
         _itemCache = itemCache;
         _pluginLog = pluginLog;
     }
@@ -210,10 +207,14 @@ internal sealed class SupplyHandler
             if (itemName != null && _itemCache.GetItemIdFromItemName(itemName)
                     .Any(itemId => InternalConfiguration.QuickVentureExclusiveItems.Contains(itemId)))
             {
-                _chatGui.Print(new SeStringBuilder().Append("Won't turn in ")
-                    .AddItemLink(_itemCache.GetItemIdFromItemName(itemName).First())
-                    .Append(", as it can only be obtained through Quick Ventures.")
-                    .Build());
+                _plugin.DeliveryResult = new DeliveryResult
+                {
+                    Message = new SeStringBuilder()
+                        .Append("Won't turn in ")
+                        .AddItemLink(_itemCache.GetItemIdFromItemName(itemName).First())
+                        .Append(", as it can only be obtained through Quick Ventures.")
+                        .Build(),
+                };
 
                 addonSupplyReward->AtkUnitBase.FireCallbackInt(1);
                 _plugin.CurrentStage = Stage.CloseGcSupplyWindowThenStop;

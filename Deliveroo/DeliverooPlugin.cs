@@ -82,7 +82,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         var itemCache = new ItemCache(dataManager);
 
         _exchangeHandler = new ExchangeHandler(this, _gameFunctions, targetManager, _gameGui, _chatGui, _pluginLog);
-        _supplyHandler = new SupplyHandler(this, _gameFunctions, targetManager, _gameGui, _chatGui, itemCache,
+        _supplyHandler = new SupplyHandler(this, _gameFunctions, targetManager, _gameGui, itemCache,
             _pluginLog);
 
         _configWindow = new ConfigWindow(_pluginInterface, this, _configuration, _gcRewardsCache, _clientState,
@@ -132,7 +132,12 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
             {
                 _turnInWindow.State = false;
                 _pluginLog.Information($"Pausing GC delivery, FC reached rank {rank}");
-                _chatGui.Print($"Pausing Deliveroo, your FC reached rank {rank}.");
+                DeliveryResult = new DeliveryResult
+                {
+                    Message = new SeStringBuilder()
+                        .Append($"Pausing Deliveroo, your FC reached rank {rank}.")
+                        .Build(),
+                };
                 return;
             }
         }
@@ -155,8 +160,9 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
     }
 
     internal DateTime ContinueAt { private get; set; } = DateTime.MinValue;
-    internal List<PurchaseItemRequest> ItemsToPurchaseNow { get; set; } = new();
+    internal List<PurchaseItemRequest> ItemsToPurchaseNow { get; private set; } = new();
     internal int LastTurnInListSize { get; set; } = int.MaxValue;
+    internal DeliveryResult? DeliveryResult { get; set; }
 
     internal bool TurnInState
     {
@@ -234,11 +240,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         {
             _turnInWindow.IsOpen = false;
             _turnInWindow.State = false;
-            if (CurrentStage != Stage.Stopped)
-            {
-                _externalPluginHandler.Restore();
-                CurrentStage = Stage.Stopped;
-            }
+            StopTurnIn();
         }
         else if (DateTime.Now > ContinueAt)
         {
@@ -247,18 +249,14 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
 
             if (!_turnInWindow.State)
             {
-                if (CurrentStage != Stage.Stopped)
-                {
-                    _externalPluginHandler.Restore();
-                    CurrentStage = Stage.Stopped;
-                }
-
+                StopTurnIn();
                 return;
             }
             else if (_turnInWindow.State && CurrentStage == Stage.Stopped)
             {
                 CurrentStage = Stage.TargetPersonnelOfficer;
                 ItemsToPurchaseNow = _turnInWindow.SelectedItems;
+                DeliveryResult = new();
                 _supplyHandler.ResetTurnInErrorHandling();
                 if (ItemsToPurchaseNow.Count > 0)
                 {
@@ -351,10 +349,9 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
                     break;
 
                 case Stage.RequestStop:
-                    _externalPluginHandler.Restore();
-                    CurrentStage = Stage.Stopped;
-
+                    StopTurnIn();
                     break;
+
                 case Stage.Stopped:
                     break;
 
@@ -365,6 +362,51 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         }
     }
 
+    private void StopTurnIn()
+    {
+        if (CurrentStage != Stage.Stopped)
+        {
+            _externalPluginHandler.Restore();
+            CurrentStage = Stage.Stopped;
+
+            var text = DeliveryResult?.Message ?? "Delivery completed.";
+            var message = _configuration.ChatType switch
+            {
+                XivChatType.Say
+                    or XivChatType.Shout
+                    or XivChatType.TellOutgoing
+                    or XivChatType.TellIncoming
+                    or XivChatType.Party
+                    or XivChatType.Alliance
+                    or (>= XivChatType.Ls1 and <= XivChatType.Ls8)
+                    or XivChatType.FreeCompany
+                    or XivChatType.NoviceNetwork
+                    or XivChatType.Yell
+                    or XivChatType.CrossParty
+                    or XivChatType.PvPTeam
+                    or XivChatType.CrossLinkShell1
+                    or XivChatType.NPCDialogue
+                    or XivChatType.NPCDialogueAnnouncements
+                    or (>= XivChatType.CrossLinkShell2 and <= XivChatType.CrossLinkShell8)
+                    => new XivChatEntry
+                    {
+                        Message = text,
+                        Type = _configuration.ChatType,
+                        Name = new SeStringBuilder().AddUiForeground("Deliveroo", 52).Build(),
+                    },
+                _ => new XivChatEntry
+                {
+                    Message = new SeStringBuilder().AddUiForeground("[Deliveroo] ", 52)
+                        .Append(text)
+                        .Build(),
+                    Type = _configuration.ChatType,
+                }
+            };
+            _chatGui.Print(message);
+
+            DeliveryResult = null;
+        }
+    }
 
     public void Dispose()
     {

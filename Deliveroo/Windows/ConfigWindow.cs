@@ -9,6 +9,7 @@ using Dalamud.Interface.Internal;
 using Dalamud.Interface.Utility;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
+using Dalamud.Utility;
 using Deliveroo.GameData;
 using ImGuiNET;
 using LLib;
@@ -358,6 +359,21 @@ internal sealed class ConfigWindow : LWindow
             }
 
             ImGui.EndDisabled();
+
+            ImGui.SetNextItemWidth(ImGuiHelpers.GlobalScale * 120);
+            var xivChatTypes = Enum.GetValues<XivChatType>()
+                .Where(x => x != XivChatType.StandardEmote)
+                .ToArray();
+            var selectedChatType = Array.IndexOf(xivChatTypes, _configuration.ChatType);
+            string[] chatTypeNames = xivChatTypes
+                .Select(t => t.GetAttribute<XivChatTypeInfoAttribute>()?.FancyName ?? t.ToString())
+                .ToArray();
+            if (ImGui.Combo("Chat channel for status updates", ref selectedChatType, chatTypeNames,
+                    chatTypeNames.Length))
+            {
+                _configuration.ChatType = xivChatTypes[selectedChatType];
+                Save();
+            }
 
             ImGui.SetNextItemWidth(ImGuiHelpers.GlobalScale * 120);
             List<(int Rank, string Name)> rankUpComboValues = Enumerable.Range(1, 30)

@@ -15,6 +15,7 @@ internal sealed class Configuration : IPluginConfiguration
     public int ReservedSealCount { get; set; }
     public bool ReserveDifferentSealCountAtMaxRank { get; set; }
     public int ReservedSealCountAtMaxRank { get; set; }
+    public XivChatType ChatType { get; set; } = XivChatType.Debug;
     public int PauseAtRank { get; set; }
     public EBehaviorOnOtherWorld BehaviorOnOtherWorld { get; set; } = EBehaviorOnOtherWorld.Warning;
     public bool DisableFrameLimiter { get; set; } = true;
