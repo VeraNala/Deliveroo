@@ -2,6 +2,7 @@
 using Dalamud.Configuration;
 using Dalamud.Game.Text;
 using Deliveroo.GameData;
+using LLib.ImGui;
 
 namespace Deliveroo;
 
@@ -20,6 +21,9 @@ internal sealed class Configuration : IPluginConfiguration
     public EBehaviorOnOtherWorld BehaviorOnOtherWorld { get; set; } = EBehaviorOnOtherWorld.Warning;
     public bool DisableFrameLimiter { get; set; } = true;
     public bool UncapFrameRate { get; set; }
+
+    public WindowConfig TurnInWindowConfig { get; } = new();
+    public WindowConfig ConfigWindowConfig { get; } = new();
 
     internal sealed class PurchasePriority
     {

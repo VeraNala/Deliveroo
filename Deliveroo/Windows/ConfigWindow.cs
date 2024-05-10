@@ -17,7 +17,7 @@ using LLib.ImGui;
 
 namespace Deliveroo.Windows;
 
-internal sealed class ConfigWindow : LWindow
+internal sealed class ConfigWindow : LWindow, IPersistableWindowConfig
 {
     private readonly DalamudPluginInterface _pluginInterface;
     private readonly DeliverooPlugin _plugin;
@@ -57,6 +57,8 @@ internal sealed class ConfigWindow : LWindow
             MaximumSize = new Vector2(9999, 9999),
         };
     }
+
+    public WindowConfig WindowConfig => _configuration.ConfigWindowConfig;
 
     public override void Draw()
     {
@@ -425,4 +427,6 @@ internal sealed class ConfigWindow : LWindow
 
 
     private void Save() => _pluginInterface.SavePluginConfig(_configuration);
+
+    public void SaveWindowConfig() => Save();
 }

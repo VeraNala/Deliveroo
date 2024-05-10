@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using Dalamud.Game.ClientState.Conditions;
-using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Interface;
 using Dalamud.Interface.Colors;
 using Dalamud.Interface.Components;
@@ -20,7 +19,7 @@ using LLib.ImGui;
 
 namespace Deliveroo.Windows;
 
-internal sealed class TurnInWindow : LWindow
+internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
 {
     private static readonly IReadOnlyList<InventoryType> InventoryTypes = new[]
     {
@@ -98,6 +97,8 @@ internal sealed class TurnInWindow : LWindow
             }
         });
     }
+
+    public WindowConfig WindowConfig => _configuration.TurnInWindowConfig;
 
     public bool State
     {
@@ -562,6 +563,8 @@ internal sealed class TurnInWindow : LWindow
             return Math.Min(Math.Min(limit, slotsThatCanBeUsed * stackSize), inventoryLimit);
         }
     }
+
+    public void SaveWindowConfig() => _pluginInterface.SavePluginConfig(_configuration);
 
     private interface IItemsToPurchase
     {
