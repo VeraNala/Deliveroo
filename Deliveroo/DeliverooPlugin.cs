@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Linq;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Objects;
@@ -281,6 +279,13 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
                 if (_gameGui.TryGetAddonByName<AtkUnitBase>("GrandCompanyExchange", out var gcExchange) &&
                     LAddon.IsAddonReady(gcExchange))
                     CurrentStage = Stage.SelectRewardTier;
+
+                if (_gameGui.TryGetAddonByName<AddonSelectString>("SelectString", out var addonSelectString) &&
+                    LAddon.IsAddonReady(&addonSelectString->AtkUnitBase))
+                {
+                    if (SelectStringPostSetup(addonSelectString, Stage.OpenGcSupply))
+                        return;
+                }
             }
 
             if (CurrentStage != Stage.Stopped && CurrentStage != Stage.RequestStop && !_externalPluginHandler.Saved)

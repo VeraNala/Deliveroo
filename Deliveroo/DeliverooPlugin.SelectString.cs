@@ -10,30 +10,35 @@ partial class DeliverooPlugin
 {
     private unsafe void SelectStringPostSetup(AddonEvent type, AddonArgs args)
     {
+        AddonSelectString* addonSelectString = (AddonSelectString*)args.Addon;
+        SelectStringPostSetup(addonSelectString, CurrentStage);
+    }
+
+    private unsafe bool SelectStringPostSetup(AddonSelectString* addonSelectString, Stage stage)
+    {
         _pluginLog.Verbose("SelectString post-setup");
 
         string desiredText;
         Action followUp;
-        if (CurrentStage == Stage.OpenGcSupply)
+        if (stage == Stage.OpenGcSupply)
         {
             desiredText = _gameStrings.UndertakeSupplyAndProvisioningMission;
             followUp = OpenGcSupplySelectStringFollowUp;
         }
-        else if (CurrentStage == Stage.CloseGcSupplySelectString)
+        else if (stage == Stage.CloseGcSupplySelectString)
         {
             desiredText = _gameStrings.ClosePersonnelOfficerTalk;
             followUp = CloseGcSupplySelectStringFollowUp;
         }
-        else if (CurrentStage == Stage.CloseGcSupplySelectStringThenStop)
+        else if (stage == Stage.CloseGcSupplySelectStringThenStop)
         {
             desiredText = _gameStrings.ClosePersonnelOfficerTalk;
             followUp = CloseGcSupplySelectStringThenStopFollowUp;
         }
         else
-            return;
+            return false;
 
         _pluginLog.Verbose($"Looking for '{desiredText}' in prompt");
-        AddonSelectString* addonSelectString = (AddonSelectString*)args.Addon;
         int entries = addonSelectString->PopupMenu.PopupMenu.EntryCount;
 
         for (int i = 0; i < entries; ++i)
@@ -50,11 +55,12 @@ partial class DeliverooPlugin
                 addonSelectString->AtkUnitBase.FireCallbackInt(i);
 
                 followUp();
-                return;
+                return true;
             }
         }
 
         _pluginLog.Verbose($"Text '{desiredText}' was not found in prompt.");
+        return false;
     }
 
     private void OpenGcSupplySelectStringFollowUp()
