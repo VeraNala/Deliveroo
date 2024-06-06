@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using Dalamud.Game.ClientState.Objects;
 using Dalamud.Game.ClientState.Objects.Types;
-using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Plugin.Services;
 using Deliveroo.GameData;
 using FFXIVClientStructs.FFXIV.Client.UI;
@@ -20,19 +18,17 @@ internal sealed class SupplyHandler
     private readonly GameFunctions _gameFunctions;
     private readonly ITargetManager _targetManager;
     private readonly IGameGui _gameGui;
-    private readonly ItemCache _itemCache;
     private readonly IPluginLog _pluginLog;
 
     private uint _turnInErrors;
 
     public SupplyHandler(DeliverooPlugin plugin, GameFunctions gameFunctions, ITargetManager targetManager,
-        IGameGui gameGui, ItemCache itemCache, IPluginLog pluginLog)
+        IGameGui gameGui, IPluginLog pluginLog)
     {
         _plugin = plugin;
         _gameFunctions = gameFunctions;
         _targetManager = targetManager;
         _gameGui = gameGui;
-        _itemCache = itemCache;
         _pluginLog = pluginLog;
     }
 
@@ -198,37 +194,6 @@ internal sealed class SupplyHandler
         }
     }
 
-    public unsafe void TurnInSelectedItem()
-    {
-        if (_gameGui.TryGetAddonByName<AddonGrandCompanySupplyReward>("GrandCompanySupplyReward",
-                out var addonSupplyReward) && LAddon.IsAddonReady(&addonSupplyReward->AtkUnitBase))
-        {
-            string? itemName = addonSupplyReward->AtkUnitBase.AtkValues[4].ReadAtkString();
-            if (itemName != null && _itemCache.GetItemIdFromItemName(itemName)
-                    .Any(itemId => InternalConfiguration.QuickVentureExclusiveItems.Contains(itemId)))
-            {
-                _plugin.DeliveryResult = new DeliveryResult
-                {
-                    Message = new SeStringBuilder()
-                        .Append("Won't turn in ")
-                        .AddItemLink(_itemCache.GetItemIdFromItemName(itemName).First())
-                        .Append(", as it can only be obtained through Quick Ventures.")
-                        .Build(),
-                };
-
-                addonSupplyReward->AtkUnitBase.FireCallbackInt(1);
-                _plugin.CurrentStage = Stage.CloseGcSupplyWindowThenStop;
-                return;
-            }
-
-            _pluginLog.Information($"Turning in '{itemName}'");
-
-            addonSupplyReward->AtkUnitBase.FireCallbackInt(0);
-            _plugin.ContinueAt = DateTime.Now.AddSeconds(0.58);
-            _plugin.CurrentStage = Stage.FinalizeTurnIn;
-        }
-    }
-
     public unsafe void FinalizeTurnInItem()
     {
         if (_gameGui.TryGetAddonByName<AddonGrandCompanySupplyList>("GrandCompanySupplyList",
@@ -241,7 +206,10 @@ internal sealed class SupplyHandler
                 new() { Type = 0, Int = 0 }
             };
             addonSupplyList->AtkUnitBase.FireCallback(3, updateFilter);
-            _plugin.CurrentStage = Stage.SelectItemToTurnIn;
+            if (_plugin.CurrentStage == Stage.FinalizeTurnIn)
+                _plugin.CurrentStage = Stage.SelectItemToTurnIn;
+            else
+                _plugin.CurrentStage = Stage.RequestStop;
         }
     }
 

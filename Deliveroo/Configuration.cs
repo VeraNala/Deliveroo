@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using Dalamud.Configuration;
+using Dalamud.Game.ClientState.Keys;
 using Dalamud.Game.Text;
 using Deliveroo.GameData;
 using LLib.ImGui;
@@ -21,6 +22,7 @@ internal sealed class Configuration : IPluginConfiguration
     public EBehaviorOnOtherWorld BehaviorOnOtherWorld { get; set; } = EBehaviorOnOtherWorld.Warning;
     public bool DisableFrameLimiter { get; set; } = true;
     public bool UncapFrameRate { get; set; }
+    public VirtualKey QuickTurnInKey { get; set; } = VirtualKey.SHIFT;
 
     public WindowConfig TurnInWindowConfig { get; } = new();
     public WindowConfig ConfigWindowConfig { get; } = new();

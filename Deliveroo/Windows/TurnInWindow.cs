@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using Dalamud.Game.ClientState.Conditions;
+using Dalamud.Game.ClientState.Keys;
 using Dalamud.Interface;
 using Dalamud.Interface.Colors;
 using Dalamud.Interface.Components;
@@ -12,9 +13,11 @@ using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using Deliveroo.GameData;
 using FFXIVClientStructs.FFXIV.Client.Game;
+using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using ImGuiNET;
 using LLib;
+using LLib.GameUI;
 using LLib.ImGui;
 
 namespace Deliveroo.Windows;
@@ -51,13 +54,15 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
     private readonly GcRewardsCache _gcRewardsCache;
     private readonly ConfigWindow _configWindow;
     private readonly IconCache _iconCache;
+    private readonly IKeyState _keyState;
+    private readonly IGameGui _gameGui;
     private readonly GameFunctions _gameFunctions;
 
     private bool _state;
 
     public TurnInWindow(DeliverooPlugin plugin, DalamudPluginInterface pluginInterface, Configuration configuration,
         ICondition condition, IClientState clientState, GcRewardsCache gcRewardsCache, ConfigWindow configWindow,
-        IconCache iconCache, GameFunctions gameFunctions)
+        IconCache iconCache, IKeyState keyState, IGameGui gameGui, GameFunctions gameFunctions)
         : base("GC Delivery###DeliverooTurnIn")
     {
         _plugin = plugin;
@@ -68,6 +73,8 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
         _gcRewardsCache = gcRewardsCache;
         _configWindow = configWindow;
         _iconCache = iconCache;
+        _keyState = keyState;
+        _gameGui = gameGui;
         _gameFunctions = gameFunctions;
 
         Position = new Vector2(100, 100);
@@ -260,6 +267,23 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
         }
 
         ImGui.Separator();
+        if (_configuration.QuickTurnInKey != VirtualKey.NO_KEY)
+        {
+            var key = _configuration.QuickTurnInKey switch
+            {
+                VirtualKey.MENU => "ALT",
+                VirtualKey.SHIFT => "SHIFT",
+                VirtualKey.CONTROL => "CTRL",
+                _ => _configuration.QuickTurnInKey.ToString()
+            };
+            if (!State && _keyState[_configuration.QuickTurnInKey])
+                ImGui.TextColored(ImGuiColors.HealerGreen, "Click an item to turn it in without confirmation");
+            else
+                ImGui.Text($"Hold '{key}' when clicking an item to turn it in without confirmation.");
+
+            ImGui.Separator();
+        }
+
         ImGui.Text($"Debug (State): {_plugin.CurrentStage}");
     }
 

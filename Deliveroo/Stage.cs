@@ -21,4 +21,6 @@ internal enum Stage
 
     RequestStop,
     Stopped,
+
+    SingleFinalizeTurnIn,
 }

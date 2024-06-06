@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using Dalamud.Game.ClientState.Keys;
 using Dalamud.Game.Text;
 using Dalamud.Interface;
 using Dalamud.Interface.Components;
@@ -29,6 +30,15 @@ internal sealed class ConfigWindow : LWindow, IPersistableWindowConfig
     private readonly GameFunctions _gameFunctions;
 
     private readonly IReadOnlyDictionary<uint, GcRewardItem> _itemLookup;
+
+    private readonly List<(VirtualKey Key, string Label)> _keyCodes =
+    [
+        (VirtualKey.NO_KEY, "Disabled"),
+        (VirtualKey.CONTROL, "CTRL"),
+        (VirtualKey.SHIFT, "SHIFT"),
+        (VirtualKey.MENU, "ALT"),
+    ];
+
     private string _searchString = string.Empty;
     private uint _dragDropSource;
 
@@ -361,6 +371,15 @@ internal sealed class ConfigWindow : LWindow, IPersistableWindowConfig
             }
 
             ImGui.EndDisabled();
+
+            ImGui.SetNextItemWidth(ImGuiHelpers.GlobalScale * 120);
+            int selectedKey = Math.Max(0, _keyCodes.FindIndex(x => x.Key == _configuration.QuickTurnInKey));
+            if (ImGui.Combo("Quick Turn-In Key", ref selectedKey, _keyCodes.Select(x => x.Label).ToArray(),
+                    _keyCodes.Count))
+            {
+                _configuration.QuickTurnInKey = _keyCodes[selectedKey].Key;
+                Save();
+            }
 
             ImGui.SetNextItemWidth(ImGuiHelpers.GlobalScale * 120);
             var xivChatTypes = Enum.GetValues<XivChatType>()

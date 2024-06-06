@@ -40,7 +40,7 @@ partial class DeliverooPlugin
                 CurrentStage = Stage.CloseGcExchange;
             ContinueAt = DateTime.Now.AddSeconds(0.5);
         }
-        else if (CurrentStage == Stage.TurnInSelected &&
+        else if ((CurrentStage == Stage.TurnInSelected || _keyState[_configuration.QuickTurnInKey]) &&
                  _gameStrings.TradeHighQualityItem == text)
         {
             _pluginLog.Information($"Selecting 'yes' ({text})");
