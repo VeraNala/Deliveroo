@@ -7,17 +7,15 @@ using Dalamud.Game.ClientState.Keys;
 using Dalamud.Interface;
 using Dalamud.Interface.Colors;
 using Dalamud.Interface.Components;
-using Dalamud.Interface.Internal;
+using Dalamud.Interface.Textures.TextureWraps;
 using Dalamud.Interface.Utility;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using Deliveroo.GameData;
 using FFXIVClientStructs.FFXIV.Client.Game;
-using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using ImGuiNET;
 using LLib;
-using LLib.GameUI;
 using LLib.ImGui;
 
 namespace Deliveroo.Windows;
@@ -47,7 +45,7 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
     private static readonly string[] StockingTypeLabels = { "Purchase Once", "Keep in Stock" };
 
     private readonly DeliverooPlugin _plugin;
-    private readonly DalamudPluginInterface _pluginInterface;
+    private readonly IDalamudPluginInterface _pluginInterface;
     private readonly Configuration _configuration;
     private readonly ICondition _condition;
     private readonly IClientState _clientState;
@@ -55,14 +53,13 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
     private readonly ConfigWindow _configWindow;
     private readonly IconCache _iconCache;
     private readonly IKeyState _keyState;
-    private readonly IGameGui _gameGui;
     private readonly GameFunctions _gameFunctions;
 
     private bool _state;
 
-    public TurnInWindow(DeliverooPlugin plugin, DalamudPluginInterface pluginInterface, Configuration configuration,
+    public TurnInWindow(DeliverooPlugin plugin, IDalamudPluginInterface pluginInterface, Configuration configuration,
         ICondition condition, IClientState clientState, GcRewardsCache gcRewardsCache, ConfigWindow configWindow,
-        IconCache iconCache, IKeyState keyState, IGameGui gameGui, GameFunctions gameFunctions)
+        IconCache iconCache, IKeyState keyState, GameFunctions gameFunctions)
         : base("GC Delivery###DeliverooTurnIn")
     {
         _plugin = plugin;
@@ -74,7 +71,6 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
         _configWindow = configWindow;
         _iconCache = iconCache;
         _keyState = keyState;
-        _gameGui = gameGui;
         _gameFunctions = gameFunctions;
 
         Position = new Vector2(100, 100);
@@ -296,7 +292,7 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
             uint requiredSeals = _gameFunctions.GetSealsRequiredForNextRank();
 
             int currentHuntingLog =
-                MonsterNoteManager.Instance()->RankDataArraySpan[(int)_gameFunctions.GetGrandCompany() + 7]
+                MonsterNoteManager.Instance()->RankData[(int)_gameFunctions.GetGrandCompany() + 7]
                     .Rank;
             byte requiredHuntingLog = _gameFunctions.GetRequiredHuntingLogForNextRank();
 
@@ -430,11 +426,13 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
             }
 
             var comboItem = comboValues[comboValueIndex];
-            IDalamudTextureWrap? icon = _iconCache.GetIcon(comboItem.Item.IconId);
-            if (icon != null)
+            var icon = _iconCache.GetIcon(comboItem.Item.IconId);
+            if (icon.TryGetWrap(out IDalamudTextureWrap? wrap, out _))
             {
-                ImGui.Image(icon.ImGuiHandle, new Vector2(ImGui.GetFrameHeight()));
+                ImGui.Image(wrap.ImGuiHandle, new Vector2(ImGui.GetFrameHeight()));
                 ImGui.SameLine(0, 3);
+
+                wrap.Dispose();
             }
 
             indentX = ImGui.GetCursorPosX() - indentX;
@@ -577,7 +575,7 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
                 for (int i = 0; i < container->Size; ++i)
                 {
                     var item = container->GetInventorySlot(i);
-                    if (item == null || item->ItemID == 0 || item->ItemID == itemId)
+                    if (item == null || item->ItemId == 0 || item->ItemId == itemId)
                     {
                         slotsThatCanBeUsed++;
                     }
@@ -605,10 +603,10 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
     private sealed class CharacterSpecificItemsToPurchase : IItemsToPurchase
     {
         private readonly CharacterConfiguration _characterConfiguration;
-        private readonly DalamudPluginInterface _pluginInterface;
+        private readonly IDalamudPluginInterface _pluginInterface;
 
         public CharacterSpecificItemsToPurchase(CharacterConfiguration characterConfiguration,
-            DalamudPluginInterface pluginInterface)
+            IDalamudPluginInterface pluginInterface)
         {
             _characterConfiguration = characterConfiguration;
             _pluginInterface = pluginInterface;
@@ -638,9 +636,9 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
     private sealed class GlobalItemsToPurchase : IItemsToPurchase
     {
         private readonly Configuration _configuration;
-        private readonly DalamudPluginInterface _pluginInterface;
+        private readonly IDalamudPluginInterface _pluginInterface;
 
-        public GlobalItemsToPurchase(Configuration configuration, DalamudPluginInterface pluginInterface)
+        public GlobalItemsToPurchase(Configuration configuration, IDalamudPluginInterface pluginInterface)
         {
             _configuration = configuration;
             _pluginInterface = pluginInterface;

@@ -6,7 +6,7 @@ using Dalamud.Game.ClientState.Keys;
 using Dalamud.Game.Text;
 using Dalamud.Interface;
 using Dalamud.Interface.Components;
-using Dalamud.Interface.Internal;
+using Dalamud.Interface.Textures.TextureWraps;
 using Dalamud.Interface.Utility;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
@@ -20,7 +20,7 @@ namespace Deliveroo.Windows;
 
 internal sealed class ConfigWindow : LWindow, IPersistableWindowConfig
 {
-    private readonly DalamudPluginInterface _pluginInterface;
+    private readonly IDalamudPluginInterface _pluginInterface;
     private readonly DeliverooPlugin _plugin;
     private readonly Configuration _configuration;
     private readonly GcRewardsCache _gcRewardsCache;
@@ -42,7 +42,7 @@ internal sealed class ConfigWindow : LWindow, IPersistableWindowConfig
     private string _searchString = string.Empty;
     private uint _dragDropSource;
 
-    public ConfigWindow(DalamudPluginInterface pluginInterface, DeliverooPlugin plugin, Configuration configuration,
+    public ConfigWindow(IDalamudPluginInterface pluginInterface, DeliverooPlugin plugin, Configuration configuration,
         GcRewardsCache gcRewardsCache, IClientState clientState, IPluginLog pluginLog, IconCache iconCache,
         GameFunctions gameFunctions)
         : base("Deliveroo - Configuration###DeliverooConfig")
@@ -103,10 +103,12 @@ internal sealed class ConfigWindow : LWindow, IPersistableWindowConfig
                         _configuration.ItemsAvailableForPurchase.Count == 1 && itemId == ItemIds.Venture);
 
                     var item = _itemLookup[itemId];
-                    IDalamudTextureWrap? icon = _iconCache.GetIcon(item.IconId);
+                    var icon = _iconCache.GetIcon(item.IconId);
                     Vector2 pos = ImGui.GetCursorPos();
                     Vector2 iconSize = new Vector2(ImGui.GetTextLineHeight() + ImGui.GetStyle().ItemSpacing.Y);
-                    if (icon != null)
+
+                    icon.TryGetWrap(out IDalamudTextureWrap? wrap, out _);
+                    if (wrap != null)
                     {
                         ImGui.SetCursorPos(pos + new Vector2(iconSize.X + ImGui.GetStyle().FramePadding.X,
                             ImGui.GetStyle().ItemSpacing.Y / 2));
@@ -115,12 +117,14 @@ internal sealed class ConfigWindow : LWindow, IPersistableWindowConfig
                     ImGui.Selectable($"{item.Name}{(item.Limited ? $" {SeIconChar.Hyadelyn.ToIconString()}" : "")}",
                         false, ImGuiSelectableFlags.SpanAllColumns);
 
-                    if (icon != null)
+                    if (wrap != null)
                     {
                         ImGui.SameLine(0, 0);
                         ImGui.SetCursorPos(pos);
-                        ImGui.Image(icon.ImGuiHandle, iconSize);
+                        ImGui.Image(wrap.ImGuiHandle, iconSize);
                     }
+
+                    wrap?.Dispose();
 
                     if (ImGui.BeginDragDropSource())
                     {
@@ -190,12 +194,14 @@ internal sealed class ConfigWindow : LWindow, IPersistableWindowConfig
                 foreach (var item in comboValues.Where(x =>
                              x.Name.Contains(_searchString, StringComparison.OrdinalIgnoreCase)))
                 {
-                    IDalamudTextureWrap? icon = _iconCache.GetIcon(item.IconId);
-                    if (icon != null)
+                    var icon = _iconCache.GetIcon(item.IconId);
+                    if (icon.TryGetWrap(out IDalamudTextureWrap? wrap, out _))
                     {
-                        ImGui.Image(icon.ImGuiHandle, new Vector2(ImGui.GetFrameHeight()));
+                        ImGui.Image(wrap.ImGuiHandle, new Vector2(ImGui.GetFrameHeight()));
                         ImGui.SameLine();
                         ImGui.SetCursorPosY(ImGui.GetCursorPosY() + ImGui.GetStyle().FramePadding.X);
+
+                        wrap.Dispose();
                     }
 
                     bool addThis =

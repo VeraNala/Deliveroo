@@ -13,7 +13,7 @@ internal sealed class PandoraIpc
     private readonly ICallGateSubscriber<string, bool?> _getEnabled;
     private readonly ICallGateSubscriber<string, bool, object?> _setEnabled;
 
-    public PandoraIpc(DalamudPluginInterface pluginInterface, IPluginLog pluginLog)
+    public PandoraIpc(IDalamudPluginInterface pluginInterface, IPluginLog pluginLog)
     {
         _pluginLog = pluginLog;
         _getEnabled = pluginInterface.GetIpcSubscriber<string, bool?>("PandorasBox.GetFeatureEnabled");

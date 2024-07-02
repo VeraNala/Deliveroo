@@ -25,7 +25,7 @@ internal sealed class AllaganToolsIpc
 
     private readonly ICallGateSubscriber<uint, bool, uint[], uint> _itemCountOwned;
 
-    public AllaganToolsIpc(DalamudPluginInterface pluginInterface, IPluginLog pluginLog)
+    public AllaganToolsIpc(IDalamudPluginInterface pluginInterface, IPluginLog pluginLog)
     {
         _pluginLog = pluginLog;
         _itemCountOwned = pluginInterface.GetIpcSubscriber<uint, bool, uint[], uint>("AllaganTools.ItemCountOwned");

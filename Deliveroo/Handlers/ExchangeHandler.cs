@@ -31,7 +31,7 @@ internal sealed class ExchangeHandler
         _pluginLog = pluginLog;
     }
 
-    public void InteractWithQuartermaster(GameObject personnelOfficer, GameObject quartermaster)
+    public void InteractWithQuartermaster(IGameObject personnelOfficer, IGameObject quartermaster)
     {
         if (_gameFunctions.GetCurrentSealCount() < _plugin.EffectiveReservedSealCount)
         {

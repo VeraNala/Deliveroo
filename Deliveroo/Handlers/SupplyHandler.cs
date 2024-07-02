@@ -32,9 +32,9 @@ internal sealed class SupplyHandler
         _pluginLog = pluginLog;
     }
 
-    public void InteractWithPersonnelOfficer(GameObject personnelOfficer, GameObject quartermaster)
+    public void InteractWithPersonnelOfficer(IGameObject personnelOfficer, IGameObject quartermaster)
     {
-        if (_targetManager.Target == quartermaster)
+        if (_targetManager.Target?.EntityId == quartermaster.EntityId)
             return;
 
         _gameFunctions.InteractWithTarget(personnelOfficer);
@@ -46,7 +46,7 @@ internal sealed class SupplyHandler
         var agentInterface = AgentModule.Instance()->GetAgentByInternalId(AgentId.GrandCompanySupply);
         if (agentInterface != null && agentInterface->IsAgentActive())
         {
-            var addonId = agentInterface->GetAddonID();
+            var addonId = agentInterface->GetAddonId();
             if (addonId == 0)
                 return;
 
@@ -89,7 +89,7 @@ internal sealed class SupplyHandler
         var agentInterface = AgentModule.Instance()->GetAgentByInternalId(AgentId.GrandCompanySupply);
         if (agentInterface != null && agentInterface->IsAgentActive())
         {
-            var addonId = agentInterface->GetAddonID();
+            var addonId = agentInterface->GetAddonId();
             if (addonId == 0)
                 return;
 
@@ -99,7 +99,7 @@ internal sealed class SupplyHandler
 
             var addonGc = (AddonGrandCompanySupplyList*)addon;
             if (addonGc->ExpertDeliveryList == null ||
-                !addonGc->ExpertDeliveryList->AtkComponentBase.OwnerNode->AtkResNode.IsVisible)
+                !addonGc->ExpertDeliveryList->AtkComponentBase.OwnerNode->AtkResNode.IsVisible())
                 return;
 
             if (addonGc->SelectedTab != 2)
@@ -117,7 +117,7 @@ internal sealed class SupplyHandler
             }
 
             int currentListSize = addonGc->ExpertDeliveryList->ListLength;
-            if (addonGc->ListEmptyTextNode->AtkResNode.IsVisible || currentListSize == 0)
+            if (addonGc->ListEmptyTextNode->AtkResNode.IsVisible() || currentListSize == 0)
             {
                 _pluginLog.Information(
                     $"No items to turn in ({addonGc->ListEmptyTextNode->AtkResNode.IsVisible}, {currentListSize})");
@@ -226,7 +226,7 @@ internal sealed class SupplyHandler
         var agentInterface = AgentModule.Instance()->GetAgentByInternalId(AgentId.GrandCompanySupply);
         if (agentInterface != null && agentInterface->IsAgentActive())
         {
-            var addonId = agentInterface->GetAddonID();
+            var addonId = agentInterface->GetAddonId();
             if (addonId == 0)
                 return;
 

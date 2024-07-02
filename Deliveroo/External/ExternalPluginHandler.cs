@@ -7,7 +7,7 @@ namespace Deliveroo.External;
 
 internal sealed class ExternalPluginHandler : IDisposable
 {
-    private readonly DalamudPluginInterface _pluginInterface;
+    private readonly IDalamudPluginInterface _pluginInterface;
     private readonly IGameConfig _gameConfig;
     private readonly Configuration _configuration;
     private readonly IPluginLog _pluginLog;
@@ -19,7 +19,7 @@ internal sealed class ExternalPluginHandler : IDisposable
     private SystemConfigState? _limitFrameRateWhenClientInactive;
     private SystemConfigState? _uncapFrameRate;
 
-    public ExternalPluginHandler(DalamudPluginInterface pluginInterface, IGameConfig gameConfig,
+    public ExternalPluginHandler(IDalamudPluginInterface pluginInterface, IGameConfig gameConfig,
         Configuration configuration, IPluginLog pluginLog)
     {
         _pluginInterface = pluginInterface;

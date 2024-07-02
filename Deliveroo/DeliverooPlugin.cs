@@ -25,7 +25,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
 {
     private readonly WindowSystem _windowSystem = new(typeof(DeliverooPlugin).AssemblyQualifiedName);
 
-    private readonly DalamudPluginInterface _pluginInterface;
+    private readonly IDalamudPluginInterface _pluginInterface;
     private readonly IChatGui _chatGui;
     private readonly IGameGui _gameGui;
     private readonly IFramework _framework;
@@ -55,7 +55,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
 
     private Stage _currentStageInternal = Stage.Stopped;
 
-    public DeliverooPlugin(DalamudPluginInterface pluginInterface, IChatGui chatGui, IGameGui gameGui,
+    public DeliverooPlugin(IDalamudPluginInterface pluginInterface, IChatGui chatGui, IGameGui gameGui,
         IFramework framework, IClientState clientState, IObjectTable objectTable, ITargetManager targetManager,
         IDataManager dataManager, ICondition condition, ICommandManager commandManager, IPluginLog pluginLog,
         IAddonLifecycle addonLifecycle, ITextureProvider textureProvider, IGameConfig gameConfig, IKeyState keyState)
@@ -89,7 +89,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
             _pluginLog, _iconCache, _gameFunctions);
         _windowSystem.AddWindow(_configWindow);
         _turnInWindow = new TurnInWindow(this, _pluginInterface, _configuration, _condition, _clientState,
-            _gcRewardsCache, _configWindow, _iconCache, _keyState, _gameGui, _gameFunctions);
+            _gcRewardsCache, _configWindow, _iconCache, _keyState, _gameFunctions);
         _windowSystem.AddWindow(_turnInWindow);
 
         _framework.Update += FrameworkUpdate;
@@ -114,7 +114,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         _addonLifecycle.RegisterListener(AddonEvent.PostSetup, "GrandCompanySupplyReward", GrandCompanySupplyRewardPostSetup);
     }
 
-    private void ChatMessage(XivChatType type, uint senderId, ref SeString sender, ref SeString message,
+    private void ChatMessage(XivChatType type, int timestamp, ref SeString sender, ref SeString message,
         ref bool isHandled)
     {
         if (_configuration.PauseAtRank <= 0)
@@ -233,8 +233,8 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         if (!_clientState.IsLoggedIn ||
             _clientState.TerritoryType is not 128 and not 130 and not 132 ||
             _condition[ConditionFlag.OccupiedInCutSceneEvent] ||
-            _gameFunctions.GetDistanceToNpc(_gameFunctions.GetQuartermasterId(), out GameObject? quartermaster) >= 7f ||
-            _gameFunctions.GetDistanceToNpc(_gameFunctions.GetPersonnelOfficerId(), out GameObject? personnelOfficer) >=
+            _gameFunctions.GetDistanceToNpc(_gameFunctions.GetQuartermasterId(), out IGameObject? quartermaster) >= 7f ||
+            _gameFunctions.GetDistanceToNpc(_gameFunctions.GetPersonnelOfficerId(), out IGameObject? personnelOfficer) >=
             7f ||
             CharacterConfiguration is { DisableForCharacter: true } ||
             _configWindow.IsOpen)

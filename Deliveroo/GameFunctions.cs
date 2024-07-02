@@ -79,10 +79,10 @@ internal sealed class GameFunctions : IDisposable
         _retainerItemCache.Clear();
     }
 
-    public unsafe void InteractWithTarget(GameObject obj)
+    public unsafe void InteractWithTarget(IGameObject obj)
     {
         _pluginLog.Information($"Setting target to {obj}");
-        if (_targetManager.Target == null || _targetManager.Target != obj)
+        if (_targetManager.Target == null || _targetManager.Target.EntityId != obj.EntityId)
         {
             _targetManager.Target = obj;
         }
@@ -111,13 +111,13 @@ internal sealed class GameFunctions : IDisposable
 
     public unsafe byte GetGrandCompanyRank() => PlayerState.Instance()->GetGrandCompanyRank();
 
-    public float GetDistanceToNpc(int npcId, out GameObject? o)
+    public float GetDistanceToNpc(int npcId, out IGameObject? o)
     {
         foreach (var obj in _objectTable)
         {
-            if (obj.ObjectKind == ObjectKind.EventNpc && obj is Character c)
+            if (obj.ObjectKind == ObjectKind.EventNpc && obj is ICharacter c)
             {
-                if (GetNpcId(obj) == npcId)
+                if (c.DataId == npcId)
                 {
                     o = obj;
                     return Vector3.Distance(_clientState.LocalPlayer?.Position ?? Vector3.Zero, c.Position);
@@ -129,7 +129,7 @@ internal sealed class GameFunctions : IDisposable
         return float.MaxValue;
     }
 
-    public static int GetNpcId(GameObject obj)
+    public static int GetNpcId(IGameObject obj)
     {
         return Marshal.ReadInt32(obj.Address + 128);
     }

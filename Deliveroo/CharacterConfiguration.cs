@@ -17,10 +17,10 @@ internal sealed class CharacterConfiguration
     public bool OverrideItemsToPurchase { get; set; }
     public List<Configuration.PurchasePriority> ItemsToPurchase { get; set; } = new();
 
-    public static string ResolveFilePath(DalamudPluginInterface pluginInterface, ulong localContentId)
+    public static string ResolveFilePath(IDalamudPluginInterface pluginInterface, ulong localContentId)
         => Path.Join(pluginInterface.GetPluginConfigDirectory(), $"char.{localContentId:X}.json");
 
-    public static CharacterConfiguration? Load(DalamudPluginInterface pluginInterface, ulong localContentId)
+    public static CharacterConfiguration? Load(IDalamudPluginInterface pluginInterface, ulong localContentId)
     {
         string path = ResolveFilePath(pluginInterface, localContentId);
         if (!File.Exists(path))
@@ -29,11 +29,11 @@ internal sealed class CharacterConfiguration
         return JsonConvert.DeserializeObject<CharacterConfiguration>(File.ReadAllText(path));
     }
 
-    public void Save(DalamudPluginInterface pluginInterface)
+    public void Save(IDalamudPluginInterface pluginInterface)
     {
         File.WriteAllText(ResolveFilePath(pluginInterface, LocalContentId), JsonConvert.SerializeObject(this, Formatting.Indented));
     }
 
-    public void Delete(DalamudPluginInterface pluginInterface) =>
+    public void Delete(IDalamudPluginInterface pluginInterface) =>
         File.Delete(ResolveFilePath(pluginInterface, LocalContentId));
 }

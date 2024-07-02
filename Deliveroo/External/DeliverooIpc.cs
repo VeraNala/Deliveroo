@@ -16,7 +16,7 @@ internal sealed class DeliverooIpc : IDisposable
 
     private bool _running;
 
-    public DeliverooIpc(DalamudPluginInterface pluginInterface)
+    public DeliverooIpc(IDalamudPluginInterface pluginInterface)
     {
         _isTurnInRunning = pluginInterface.GetIpcProvider<bool>(IsTurnInRunning);
         _turnInStarted = pluginInterface.GetIpcProvider<object>(TurnInStarted);
