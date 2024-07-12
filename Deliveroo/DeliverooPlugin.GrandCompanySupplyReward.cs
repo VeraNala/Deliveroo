@@ -2,6 +2,7 @@
 using System.Linq;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
+using Dalamud.Game.ClientState.Keys;
 using Dalamud.Game.Text.SeStringHandling;
 using Deliveroo.GameData;
 using FFXIVClientStructs.FFXIV.Client.UI;
@@ -13,7 +14,7 @@ partial class DeliverooPlugin
 {
     private unsafe void GrandCompanySupplyRewardPostSetup(AddonEvent type, AddonArgs args)
     {
-        bool quickTurnIn = CurrentStage == Stage.Stopped && _keyState[_configuration.QuickTurnInKey];
+        bool quickTurnIn = CurrentStage == Stage.Stopped && _configuration.QuickTurnInKey != VirtualKey.NO_KEY && _keyState[_configuration.QuickTurnInKey];
         if (CurrentStage == Stage.TurnInSelected || quickTurnIn)
         {
             AddonGrandCompanySupplyReward* addonSupplyReward = (AddonGrandCompanySupplyReward*)args.Addon;

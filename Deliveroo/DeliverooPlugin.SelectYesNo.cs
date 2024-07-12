@@ -1,6 +1,7 @@
 ﻿using System;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
+using Dalamud.Game.ClientState.Keys;
 using Dalamud.Memory;
 using FFXIVClientStructs.FFXIV.Client.UI;
 
@@ -40,7 +41,7 @@ partial class DeliverooPlugin
                 CurrentStage = Stage.CloseGcExchange;
             ContinueAt = DateTime.Now.AddSeconds(0.5);
         }
-        else if ((CurrentStage == Stage.TurnInSelected || _keyState[_configuration.QuickTurnInKey]) &&
+        else if ((CurrentStage == Stage.TurnInSelected || (_configuration.QuickTurnInKey != VirtualKey.NO_KEY && _keyState[_configuration.QuickTurnInKey])) &&
                  _gameStrings.TradeHighQualityItem == text)
         {
             _pluginLog.Information($"Selecting 'yes' ({text})");
