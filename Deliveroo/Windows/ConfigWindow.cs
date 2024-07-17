@@ -117,15 +117,6 @@ internal sealed class ConfigWindow : LWindow, IPersistableWindowConfig
                     ImGui.Selectable($"{item.Name}{(item.Limited ? $" {SeIconChar.Hyadelyn.ToIconString()}" : "")}",
                         false, ImGuiSelectableFlags.SpanAllColumns);
 
-                    if (wrap != null)
-                    {
-                        ImGui.SameLine(0, 0);
-                        ImGui.SetCursorPos(pos);
-                        ImGui.Image(wrap.ImGuiHandle, iconSize);
-                    }
-
-                    wrap?.Dispose();
-
                     if (ImGui.BeginDragDropSource())
                     {
                         ImGui.SetDragDropPayload("DeliverooDragDrop", nint.Zero, 0);
@@ -155,6 +146,15 @@ internal sealed class ConfigWindow : LWindow, IPersistableWindowConfig
                             itemToRemove = itemId;
 
                         ImGui.EndPopup();
+                    }
+
+                    if (wrap != null)
+                    {
+                        ImGui.SameLine(0, 0);
+                        ImGui.SetCursorPos(pos);
+                        ImGui.Image(wrap.ImGuiHandle, iconSize);
+
+                        wrap.Dispose();
                     }
 
                     ImGui.EndDisabled();
