@@ -23,5 +23,6 @@ internal sealed class ItemCache
         }
     }
 
-    public HashSet<uint> GetItemIdFromItemName(string name) => _itemNamesToIds[name];
+    public HashSet<uint> GetItemIdFromItemName(string name) => 
+        _itemNamesToIds.TryGetValue(name, out var itemIds) ? itemIds : [];
 }
