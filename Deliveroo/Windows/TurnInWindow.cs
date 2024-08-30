@@ -4,6 +4,7 @@ using System.Linq;
 using System.Numerics;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Keys;
+using Dalamud.Game.Text;
 using Dalamud.Interface;
 using Dalamud.Interface.Colors;
 using Dalamud.Interface.Components;
@@ -149,13 +150,16 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
                 .Where(x => x.Reward.RequiredRank <= rank)
                 .Select(x =>
                 {
+                    var purchaseOption = _configuration.ItemsAvailableToPurchase.Where(y => y.SameQuantityForAllLists)
+                        .FirstOrDefault(y => y.ItemId == x.Item.ItemId);
+                    int limit = purchaseOption?.GlobalLimit ?? x.Item.Limit;
                     var request = new PurchaseItemRequest
                     {
                         ItemId = x.Item.ItemId,
                         Name = x.Reward.Name,
                         EffectiveLimit = CalculateEffectiveLimit(
                             x.Item.ItemId,
-                            x.Item.Limit <= 0 ? uint.MaxValue : (uint)x.Item.Limit,
+                            limit <= 0 ? uint.MaxValue : (uint)limit,
                             x.Reward.StackSize,
                             x.Reward.InventoryLimit),
                         SealCost = x.Reward.SealCost,
@@ -340,13 +344,20 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
         {
             (GcRewardItem.None, GcRewardItem.None.Name, GcRewardItem.None.Name),
         };
-        foreach (uint itemId in _configuration.ItemsAvailableForPurchase)
+        foreach (Configuration.PurchaseOption purchaseOption in _configuration.ItemsAvailableToPurchase)
         {
-            var gcReward = _gcRewardsCache.GetReward(itemId);
-            int itemCountWithoutRetainers = _gameFunctions.GetItemCount(itemId, false);
-            int itemCountWithRetainers = _gameFunctions.GetItemCount(itemId, true);
+            var gcReward = _gcRewardsCache.GetReward(purchaseOption.ItemId);
+            int itemCountWithoutRetainers = _gameFunctions.GetItemCount(purchaseOption.ItemId, false);
+            int itemCountWithRetainers = _gameFunctions.GetItemCount(purchaseOption.ItemId, true);
             string itemNameWithoutRetainers = gcReward.Name;
             string itemNameWithRetainers = gcReward.Name;
+
+            if (purchaseOption.SameQuantityForAllLists)
+            {
+                itemNameWithoutRetainers += $" {((SeIconChar)57412).ToIconString()}";
+                itemNameWithRetainers += $" {((SeIconChar)57412).ToIconString()}";
+            }
+
             if (itemCountWithoutRetainers > 0)
                 itemNameWithoutRetainers += $" ({itemCountWithoutRetainers:N0})";
             if (itemCountWithRetainers > 0)
@@ -369,184 +380,7 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
 
         for (int i = 0; i < itemsWrapper.GetItemsToPurchase().Count; ++i)
         {
-            Vector2 topLeft = ImGui.GetCursorScreenPos() + new Vector2(0, -ImGui.GetStyle().ItemSpacing.Y / 2);
-
-            ImGui.PushID($"ItemToBuy{i}");
-            Configuration.PurchasePriority item = itemsWrapper.GetItemsToPurchase()[i];
-
-            float indentX = ImGui.GetCursorPosX();
-            bool enabled = item.Enabled;
-            int popColors = 0;
-            if (!enabled)
-            {
-                ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(1f, 0.5f, 0.35f, 1f));
-                popColors++;
-            }
-
-            if (ImGui.Button($"{item.GetIcon()}"))
-                ImGui.OpenPopup($"Configure{i}");
-
-            ImGui.PopStyleColor(popColors);
-
-            if (ImGui.BeginPopup($"Configure{i}"))
-            {
-                if (ImGui.Checkbox($"Enabled##Enabled{i}", ref enabled))
-                {
-                    item.Enabled = enabled;
-                    itemsWrapper.Save();
-                }
-
-                ImGui.SetNextItemWidth(375 * ImGuiHelpers.GlobalScale);
-                int type = (int)item.Type;
-                if (ImGui.Combo($"##Type{i}", ref type, StockingTypeLabels, StockingTypeLabels.Length))
-                {
-                    item.Type = (Configuration.PurchaseType)type;
-                    if (item.Type != Configuration.PurchaseType.KeepStocked)
-                        item.CheckRetainerInventory = false;
-                    itemsWrapper.Save();
-                }
-
-                if (item.Type == Configuration.PurchaseType.KeepStocked && item.ItemId != ItemIds.Venture)
-                {
-                    bool checkRetainerInventory = item.CheckRetainerInventory;
-                    if (ImGui.Checkbox("Check Retainer Inventory for items (requires AllaganTools)",
-                            ref checkRetainerInventory))
-                    {
-                        item.CheckRetainerInventory = checkRetainerInventory;
-                        itemsWrapper.Save();
-                    }
-                }
-
-                ImGui.EndPopup();
-            }
-
-            ImGui.SameLine(0, 3);
-            ImGui.BeginDisabled(!enabled);
-            int comboValueIndex = comboValues.FindIndex(x => x.Item.ItemId == item.ItemId);
-            if (comboValueIndex < 0)
-            {
-                item.ItemId = 0;
-                item.Limit = 0;
-                itemsWrapper.Save();
-
-                comboValueIndex = 0;
-            }
-
-            var comboItem = comboValues[comboValueIndex];
-            var icon = _iconCache.GetIcon(comboItem.Item.IconId);
-            if (icon.TryGetWrap(out IDalamudTextureWrap? wrap, out _))
-            {
-                ImGui.Image(wrap.ImGuiHandle, new Vector2(ImGui.GetFrameHeight()));
-                ImGui.SameLine(0, 3);
-
-                wrap.Dispose();
-            }
-
-            indentX = ImGui.GetCursorPosX() - indentX;
-
-            ImGui.PushFont(UiBuilder.IconFont);
-            ImGui.SetNextItemWidth(width -
-                           ImGui.GetStyle().WindowPadding.X -
-                           ImGui.CalcTextSize(FontAwesomeIcon.Circle.ToIconString()).X -
-                           ImGui.CalcTextSize(FontAwesomeIcon.ArrowsUpDown.ToIconString()).X -
-                           ImGui.CalcTextSize(FontAwesomeIcon.Times.ToIconString()).X -
-                           ImGui.GetStyle().FramePadding.X * 8 -
-                           ImGui.GetStyle().ItemSpacing.X * 2 - 3 * 3);
-            ImGui.PopFont();
-
-            if (ImGui.Combo("", ref comboValueIndex,
-                    comboValues.Select(x => item.CheckRetainerInventory ? x.NameWithRetainers : x.NameWithoutRetainers)
-                        .ToArray(), comboValues.Count))
-            {
-                comboItem = comboValues[comboValueIndex];
-                item.ItemId = comboItem.Item.ItemId;
-                itemsWrapper.Save();
-            }
-
-            ImGui.EndDisabled();
-
-            if (itemsWrapper.GetItemsToPurchase().Count >= 2)
-            {
-                ImGui.PushFont(UiBuilder.IconFont);
-                ImGui.SameLine(ImGui.GetContentRegionAvail().X +
-                               ImGui.GetStyle().WindowPadding.X -
-                               ImGui.CalcTextSize(FontAwesomeIcon.ArrowsUpDown.ToIconString()).X -
-                               ImGui.CalcTextSize(FontAwesomeIcon.Times.ToIconString()).X -
-                               ImGui.GetStyle().FramePadding.X * 4 -
-                               ImGui.GetStyle().ItemSpacing.X);
-                ImGui.PopFont();
-
-                if (_draggedItem == item.InternalId)
-                {
-                    ImGuiComponents.IconButton("##Move", FontAwesomeIcon.ArrowsUpDown,
-                        ImGui.ColorConvertU32ToFloat4(ImGui.GetColorU32(ImGuiCol.ButtonActive)));
-                }
-                else
-                    ImGuiComponents.IconButton("##Move", FontAwesomeIcon.ArrowsUpDown);
-
-                if (_draggedItem == null && ImGui.IsItemActive() && ImGui.IsMouseDragging(ImGuiMouseButton.Left))
-                    _draggedItem = item.InternalId;
-
-                ImGui.SameLine();
-            }
-            else
-            {
-                ImGui.PushFont(UiBuilder.IconFont);
-                ImGui.SameLine(ImGui.GetContentRegionAvail().X +
-                               ImGui.GetStyle().WindowPadding.X -
-                               ImGui.CalcTextSize(FontAwesomeIcon.Times.ToIconString()).X -
-                               ImGui.GetStyle().FramePadding.X * 2);
-                ImGui.PopFont();
-            }
-
-            if (ImGuiComponents.IconButton($"###Remove{i}", FontAwesomeIcon.Times))
-                itemToRemove = item;
-
-            if (enabled)
-            {
-                ImGui.Indent(indentX);
-                if (comboValueIndex > 0)
-                {
-                    ImGui.SetNextItemWidth(ImGuiHelpers.GlobalScale * 130);
-                    int limit = Math.Min(item.Limit, (int)comboItem.Item.InventoryLimit);
-                    int stepSize = comboItem.Item.StackSize < 99 ? 1 : 50;
-                    string label = item.Type == Configuration.PurchaseType.KeepStocked
-                        ? "Maximum items to buy"
-                        : "Remaining items to buy";
-                    if (ImGui.InputInt(label, ref limit, stepSize, stepSize * 10))
-                    {
-                        item.Limit = Math.Min(Math.Max(0, limit), (int)comboItem.Item.InventoryLimit);
-                        itemsWrapper.Save();
-                    }
-                }
-                else if (item.Limit != 0)
-                {
-                    item.Limit = 0;
-                    itemsWrapper.Save();
-                }
-
-                if (comboValueIndex > 0)
-                {
-                    if (!comboItem.Item.GrandCompanies.Contains(grandCompany))
-                    {
-                        ImGui.TextColored(ImGuiColors.DalamudRed,
-                            "This item will be skipped, as you are in the wrong Grand Company.");
-                    }
-                    else if (comboItem.Item.RequiredRank > _gameFunctions.GetGrandCompanyRank())
-                    {
-                        ImGui.TextColored(ImGuiColors.DalamudRed,
-                            "This item will be skipped, your rank isn't high enough to buy it.");
-                    }
-                }
-
-                ImGui.Unindent(indentX);
-            }
-
-            ImGui.PopID();
-
-            Vector2 bottomRight = new Vector2(topLeft.X + width,
-                ImGui.GetCursorScreenPos().Y - ImGui.GetStyle().ItemSpacing.Y + 2);
-            itemPositions.Add((topLeft, bottomRight));
+            DrawItemToBuy(grandCompany, i, itemsWrapper, comboValues, width, ref itemToRemove, itemPositions);
         }
 
         if (!ImGui.IsMouseDragging(ImGuiMouseButton.Left))
@@ -582,21 +416,21 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
             itemsWrapper.Save();
         }
 
-        if (_configuration.ItemsAvailableForPurchase.Any(x =>
-                itemsWrapper.GetItemsToPurchase().All(y => x != y.ItemId)))
+        if (_configuration.ItemsToPurchase.Any(x =>
+                itemsWrapper.GetItemsToPurchase().All(y => x.ItemId != y.ItemId)))
         {
             if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.Plus, "Add Item"))
                 ImGui.OpenPopup("##AddItem");
 
             if (ImGui.BeginPopupContextItem("##AddItem", ImGuiPopupFlags.NoOpenOverItems))
             {
-                foreach (var itemId in _configuration.ItemsAvailableForPurchase.Distinct())
+                foreach (var purchaseOption in _configuration.ItemsAvailableToPurchase.Distinct())
                 {
-                    if (_gcRewardsCache.RewardLookup.TryGetValue(itemId, out var reward))
+                    if (_gcRewardsCache.RewardLookup.TryGetValue(purchaseOption.ItemId, out var reward))
                     {
-                        if (ImGui.MenuItem($"{reward.Name}##{itemId}"))
+                        if (ImGui.MenuItem($"{reward.Name}##{purchaseOption.ItemId}"))
                         {
-                            itemsWrapper.Add(new Configuration.PurchasePriority { ItemId = itemId, Limit = 0 });
+                            itemsWrapper.Add(new Configuration.PurchasePriority { ItemId = purchaseOption.ItemId, Limit = 0 });
                             itemsWrapper.Save();
                             ImGui.CloseCurrentPopup();
                         }
@@ -610,6 +444,204 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
             if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.Cog, "Configure available Items"))
                 _configWindow.IsOpen = true;
         }
+    }
+
+    private void DrawItemToBuy(GrandCompany grandCompany, int i, IItemsToPurchase itemsWrapper,
+        List<(GcRewardItem Item, string NameWithoutRetainers, string NameWithRetainers)> comboValues, float width,
+        ref Configuration.PurchasePriority? itemToRemove, List<(Vector2 TopLeft, Vector2 BottomRight)> itemPositions)
+    {
+        Vector2 topLeft = ImGui.GetCursorScreenPos() + new Vector2(0, -ImGui.GetStyle().ItemSpacing.Y / 2);
+
+        ImGui.PushID($"ItemToBuy{i}");
+        Configuration.PurchasePriority item = itemsWrapper.GetItemsToPurchase()[i];
+
+        float indentX = ImGui.GetCursorPosX();
+        bool enabled = item.Enabled;
+        int popColors = 0;
+        if (!enabled)
+        {
+            ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(1f, 0.5f, 0.35f, 1f));
+            popColors++;
+        }
+
+        if (ImGui.Button($"{item.GetIcon()}"))
+            ImGui.OpenPopup($"Configure{i}");
+
+        ImGui.PopStyleColor(popColors);
+
+        if (ImGui.BeginPopup($"Configure{i}"))
+        {
+            if (ImGui.Checkbox($"Enabled##Enabled{i}", ref enabled))
+            {
+                item.Enabled = enabled;
+                itemsWrapper.Save();
+            }
+
+            ImGui.SetNextItemWidth(375 * ImGuiHelpers.GlobalScale);
+            int type = (int)item.Type;
+            if (ImGui.Combo($"##Type{i}", ref type, StockingTypeLabels, StockingTypeLabels.Length))
+            {
+                item.Type = (Configuration.PurchaseType)type;
+                if (item.Type != Configuration.PurchaseType.KeepStocked)
+                    item.CheckRetainerInventory = false;
+                itemsWrapper.Save();
+            }
+
+            if (item.Type == Configuration.PurchaseType.KeepStocked && item.ItemId != ItemIds.Venture)
+            {
+                bool checkRetainerInventory = item.CheckRetainerInventory;
+                if (ImGui.Checkbox("Check Retainer Inventory for items (requires AllaganTools)",
+                        ref checkRetainerInventory))
+                {
+                    item.CheckRetainerInventory = checkRetainerInventory;
+                    itemsWrapper.Save();
+                }
+            }
+
+            ImGui.EndPopup();
+        }
+
+        ImGui.SameLine(0, 3);
+        ImGui.BeginDisabled(!enabled);
+        int comboValueIndex = comboValues.FindIndex(x => x.Item.ItemId == item.ItemId);
+        if (comboValueIndex < 0)
+        {
+            item.ItemId = 0;
+            item.Limit = 0;
+            itemsWrapper.Save();
+
+            comboValueIndex = 0;
+        }
+
+        var comboItem = comboValues[comboValueIndex];
+        var icon = _iconCache.GetIcon(comboItem.Item.IconId);
+        if (icon.TryGetWrap(out IDalamudTextureWrap? wrap, out _))
+        {
+            ImGui.Image(wrap.ImGuiHandle, new Vector2(ImGui.GetFrameHeight()));
+            ImGui.SameLine(0, 3);
+
+            wrap.Dispose();
+        }
+
+        indentX = ImGui.GetCursorPosX() - indentX;
+
+        ImGui.PushFont(UiBuilder.IconFont);
+        ImGui.SetNextItemWidth(width -
+                               ImGui.GetStyle().WindowPadding.X -
+                               ImGui.CalcTextSize(FontAwesomeIcon.Circle.ToIconString()).X -
+                               ImGui.CalcTextSize(FontAwesomeIcon.ArrowsUpDown.ToIconString()).X -
+                               ImGui.CalcTextSize(FontAwesomeIcon.Times.ToIconString()).X -
+                               ImGui.GetStyle().FramePadding.X * 8 -
+                               ImGui.GetStyle().ItemSpacing.X * 2 - 3 * 3);
+        ImGui.PopFont();
+
+        if (ImGui.Combo("", ref comboValueIndex,
+                comboValues.Select(x => item.CheckRetainerInventory ? x.NameWithRetainers : x.NameWithoutRetainers)
+                    .ToArray(), comboValues.Count))
+        {
+            comboItem = comboValues[comboValueIndex];
+            item.ItemId = comboItem.Item.ItemId;
+            itemsWrapper.Save();
+        }
+
+        ImGui.EndDisabled();
+
+        if (itemsWrapper.GetItemsToPurchase().Count >= 2)
+        {
+            ImGui.PushFont(UiBuilder.IconFont);
+            ImGui.SameLine(ImGui.GetContentRegionAvail().X +
+                           ImGui.GetStyle().WindowPadding.X -
+                           ImGui.CalcTextSize(FontAwesomeIcon.ArrowsUpDown.ToIconString()).X -
+                           ImGui.CalcTextSize(FontAwesomeIcon.Times.ToIconString()).X -
+                           ImGui.GetStyle().FramePadding.X * 4 -
+                           ImGui.GetStyle().ItemSpacing.X);
+            ImGui.PopFont();
+
+            if (_draggedItem == item.InternalId)
+            {
+                ImGuiComponents.IconButton("##Move", FontAwesomeIcon.ArrowsUpDown,
+                    ImGui.ColorConvertU32ToFloat4(ImGui.GetColorU32(ImGuiCol.ButtonActive)));
+            }
+            else
+                ImGuiComponents.IconButton("##Move", FontAwesomeIcon.ArrowsUpDown);
+
+            if (_draggedItem == null && ImGui.IsItemActive() && ImGui.IsMouseDragging(ImGuiMouseButton.Left))
+                _draggedItem = item.InternalId;
+
+            ImGui.SameLine();
+        }
+        else
+        {
+            ImGui.PushFont(UiBuilder.IconFont);
+            ImGui.SameLine(ImGui.GetContentRegionAvail().X +
+                           ImGui.GetStyle().WindowPadding.X -
+                           ImGui.CalcTextSize(FontAwesomeIcon.Times.ToIconString()).X -
+                           ImGui.GetStyle().FramePadding.X * 2);
+            ImGui.PopFont();
+        }
+
+        if (ImGuiComponents.IconButton($"###Remove{i}", FontAwesomeIcon.Times))
+            itemToRemove = item;
+
+        if (enabled)
+        {
+            ImGui.Indent(indentX);
+            if (comboValueIndex > 0)
+            {
+                var purchaseOption =
+                    _configuration.ItemsAvailableToPurchase
+                        .Where(x => x.SameQuantityForAllLists)
+                        .FirstOrDefault(x => x.ItemId == item.ItemId);
+
+                ImGui.SetNextItemWidth(ImGuiHelpers.GlobalScale * 130);
+                int limit = Math.Min(purchaseOption?.GlobalLimit ?? item.Limit, (int)comboItem.Item.InventoryLimit);
+                int stepSize = comboItem.Item.StackSize < 99 ? 1 : 50;
+                string label = item.Type == Configuration.PurchaseType.KeepStocked
+                    ? "Maximum items to buy"
+                    : "Remaining items to buy";
+                if (ImGui.InputInt(label, ref limit, stepSize, stepSize * 10))
+                {
+                    int newLimit =  Math.Min(Math.Max(0, limit), (int)comboItem.Item.InventoryLimit);
+                    if (purchaseOption != null)
+                    {
+                        purchaseOption.GlobalLimit = newLimit;
+                        _pluginInterface.SavePluginConfig(_configuration);
+                    }
+                    else
+                    {
+                        item.Limit = newLimit;
+                        itemsWrapper.Save();
+                    }
+                }
+            }
+            else if (item.Limit != 0)
+            {
+                item.Limit = 0;
+                itemsWrapper.Save();
+            }
+
+            if (comboValueIndex > 0)
+            {
+                if (!comboItem.Item.GrandCompanies.Contains(grandCompany))
+                {
+                    ImGui.TextColored(ImGuiColors.DalamudRed,
+                        "This item will be skipped, as you are in the wrong Grand Company.");
+                }
+                else if (comboItem.Item.RequiredRank > _gameFunctions.GetGrandCompanyRank())
+                {
+                    ImGui.TextColored(ImGuiColors.DalamudRed,
+                        "This item will be skipped, your rank isn't high enough to buy it.");
+                }
+            }
+
+            ImGui.Unindent(indentX);
+        }
+
+        ImGui.PopID();
+
+        Vector2 bottomRight = new Vector2(topLeft.X + width,
+            ImGui.GetCursorScreenPos().Y - ImGui.GetStyle().ItemSpacing.Y + 2);
+        itemPositions.Add((topLeft, bottomRight));
     }
 
     private unsafe uint CalculateEffectiveLimit(uint itemId, uint limit, uint stackSize, uint inventoryLimit)

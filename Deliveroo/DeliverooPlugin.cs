@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Objects;
@@ -74,6 +75,8 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         _keyState = keyState;
 
         _configuration = (Configuration?)_pluginInterface.GetPluginConfig() ?? new Configuration();
+        MigrateConfiguration();
+
         _gameStrings = new GameStrings(dataManager, _pluginLog);
         _externalPluginHandler = new ExternalPluginHandler(_pluginInterface, gameConfig, _configuration, _pluginLog);
         _gameFunctions = new GameFunctions(objectTable, _clientState, targetManager, dataManager,
@@ -112,6 +115,23 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         _addonLifecycle.RegisterListener(AddonEvent.PostSetup, "SelectString", SelectStringPostSetup);
         _addonLifecycle.RegisterListener(AddonEvent.PostSetup, "SelectYesno", SelectYesNoPostSetup);
         _addonLifecycle.RegisterListener(AddonEvent.PostSetup, "GrandCompanySupplyReward", GrandCompanySupplyRewardPostSetup);
+    }
+
+    private void MigrateConfiguration()
+    {
+#pragma warning disable CS0612 // Type or member is obsolete
+        if (_configuration.Version == 1)
+        {
+            _configuration.ItemsAvailableToPurchase = _configuration.ItemsAvailableForPurchase.Select(x =>
+                new Configuration.PurchaseOption
+                {
+                    ItemId = x,
+                    SameQuantityForAllLists = false,
+                }).ToList();
+            _configuration.Version = 2;
+            _pluginInterface.SavePluginConfig(_configuration);
+        }
+#pragma warning restore CS0612 // Type or member is obsolete
     }
 
     private void ChatMessage(XivChatType type, int timestamp, ref SeString sender, ref SeString message,

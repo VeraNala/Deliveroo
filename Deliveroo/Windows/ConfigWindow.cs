@@ -40,7 +40,7 @@ internal sealed class ConfigWindow : LWindow, IPersistableWindowConfig
     ];
 
     private string _searchString = string.Empty;
-    private uint _dragDropSource;
+    private Configuration.PurchaseOption? _dragDropSource;
 
     public ConfigWindow(IDalamudPluginInterface pluginInterface, DeliverooPlugin plugin, Configuration configuration,
         GcRewardsCache gcRewardsCache, IClientState clientState, IPluginLog pluginLog, IconCache iconCache,
@@ -89,20 +89,20 @@ internal sealed class ConfigWindow : LWindow, IPersistableWindowConfig
     {
         if (ImGui.BeginTabItem("Items for Auto-Buy"))
         {
-            uint? itemToRemove = null;
-            uint? itemToAdd = null;
+            Configuration.PurchaseOption? itemToRemove = null;
+            Configuration.PurchaseOption? itemToAdd = null;
             int indexToAdd = 0;
             if (ImGui.BeginChild("Items", new Vector2(-1, -ImGui.GetFrameHeightWithSpacing()), true,
                     ImGuiWindowFlags.NoSavedSettings))
             {
-                for (int i = 0; i < _configuration.ItemsAvailableForPurchase.Count; ++i)
+                for (int i = 0; i < _configuration.ItemsAvailableToPurchase.Count; ++i)
                 {
-                    uint itemId = _configuration.ItemsAvailableForPurchase[i];
+                    var purchaseOption = _configuration.ItemsAvailableToPurchase[i];
                     ImGui.PushID($"###Item{i}");
                     ImGui.BeginDisabled(
-                        _configuration.ItemsAvailableForPurchase.Count == 1 && itemId == ItemIds.Venture);
+                        _configuration.ItemsAvailableToPurchase.Count == 1 && purchaseOption.ItemId == ItemIds.Venture);
 
-                    var item = _itemLookup[itemId];
+                    var item = _itemLookup[purchaseOption.ItemId];
                     var icon = _iconCache.GetIcon(item.IconId);
                     Vector2 pos = ImGui.GetCursorPos();
                     Vector2 iconSize = new Vector2(ImGui.GetTextLineHeight() + ImGui.GetStyle().ItemSpacing.Y);
@@ -114,26 +114,26 @@ internal sealed class ConfigWindow : LWindow, IPersistableWindowConfig
                             ImGui.GetStyle().ItemSpacing.Y / 2));
                     }
 
-                    ImGui.Selectable($"{item.Name}{(item.Limited ? $" {SeIconChar.Hyadelyn.ToIconString()}" : "")}",
+                    ImGui.Selectable($"{item.Name}{(item.Limited ? $" {SeIconChar.Hyadelyn.ToIconString()}" : "")}{(purchaseOption.SameQuantityForAllLists ? $" {((SeIconChar)57412).ToIconString()} (Limit: {purchaseOption.GlobalLimit:N0})" : "")}",
                         false, ImGuiSelectableFlags.SpanAllColumns);
 
                     if (ImGui.BeginDragDropSource())
                     {
                         ImGui.SetDragDropPayload("DeliverooDragDrop", nint.Zero, 0);
-                        _dragDropSource = itemId;
+                        _dragDropSource = purchaseOption;
 
                         ImGui.EndDragDropSource();
                     }
 
                     if (ImGui.BeginDragDropTarget())
                     {
-                        if (_dragDropSource > 0 &&
+                        if (_dragDropSource != null &&
                             ImGui.AcceptDragDropPayload("DeliverooDragDrop").NativePtr != null)
                         {
                             itemToAdd = _dragDropSource;
                             indexToAdd = i;
 
-                            _dragDropSource = 0;
+                            _dragDropSource = null;
                         }
 
                         ImGui.EndDragDropTarget();
@@ -142,8 +142,16 @@ internal sealed class ConfigWindow : LWindow, IPersistableWindowConfig
                     ImGui.OpenPopupOnItemClick($"###ctx{i}", ImGuiPopupFlags.MouseButtonRight);
                     if (ImGui.BeginPopup($"###ctx{i}"))
                     {
-                        if (ImGui.Selectable($"Remove {_itemLookup[itemId].Name}"))
-                            itemToRemove = itemId;
+                        bool sameQuantityForAllLists = purchaseOption.SameQuantityForAllLists;
+                        if (ImGui.MenuItem("Use same quantity for global and character-specific lists", null,
+                                ref sameQuantityForAllLists))
+                        {
+                            purchaseOption.SameQuantityForAllLists = sameQuantityForAllLists;
+                            Save();
+                        }
+
+                        if (ImGui.MenuItem($"Remove {_itemLookup[purchaseOption.ItemId].Name}"))
+                            itemToRemove = purchaseOption;
 
                         ImGui.EndPopup();
                     }
@@ -166,20 +174,20 @@ internal sealed class ConfigWindow : LWindow, IPersistableWindowConfig
 
             if (itemToRemove != null)
             {
-                _configuration.ItemsAvailableForPurchase.Remove(itemToRemove.Value);
+                _configuration.ItemsAvailableToPurchase.Remove(itemToRemove);
                 Save();
             }
 
             if (itemToAdd != null)
             {
-                _configuration.ItemsAvailableForPurchase.Remove(itemToAdd.Value);
-                _configuration.ItemsAvailableForPurchase.Insert(indexToAdd, itemToAdd.Value);
+                _configuration.ItemsAvailableToPurchase.Remove(itemToAdd);
+                _configuration.ItemsAvailableToPurchase.Insert(indexToAdd, itemToAdd);
                 Save();
             }
 
             List<(uint ItemId, string Name, ushort IconId, bool Limited)> comboValues = _gcRewardsCache.Rewards
                 .Where(x => x.SubCategory is RewardSubCategory.Materials or RewardSubCategory.Materiel)
-                .Where(x => !_configuration.ItemsAvailableForPurchase.Contains(x.ItemId))
+                .Where(x => _configuration.ItemsAvailableToPurchase.All(y => y.ItemId != x.ItemId))
                 .Select(x => (x.ItemId, x.Name, x.IconId, x.Limited))
                 .OrderBy(x => x.Name)
                 .ThenBy(x => x.GetHashCode())
@@ -209,7 +217,7 @@ internal sealed class ConfigWindow : LWindow, IPersistableWindowConfig
                             $"{item.Name}{(item.Limited ? $" {SeIconChar.Hyadelyn.ToIconString()}" : "")}##SelectVenture{item.IconId}");
                     if (addThis || addFirst)
                     {
-                        _configuration.ItemsAvailableForPurchase.Add(item.ItemId);
+                        _configuration.ItemsAvailableToPurchase.Add(new Configuration.PurchaseOption { ItemId = item.ItemId });
 
                         if (addFirst)
                         {

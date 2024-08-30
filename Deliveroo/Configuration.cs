@@ -11,10 +11,13 @@ namespace Deliveroo;
 
 internal sealed class Configuration : IPluginConfiguration
 {
-    public int Version { get; set; } = 1;
+    public int Version { get; set; } = 2;
 
-    public List<uint> ItemsAvailableForPurchase { get; set; } = new();
-    public List<PurchasePriority> ItemsToPurchase { get; set; } = new();
+    [Obsolete]
+    public List<uint> ItemsAvailableForPurchase { get; set; } = [];
+
+    public List<PurchaseOption> ItemsAvailableToPurchase { get; set; } = [];
+    public List<PurchasePriority> ItemsToPurchase { get; set; } = [];
 
     public int ReservedSealCount { get; set; }
     public bool ReserveDifferentSealCountAtMaxRank { get; set; }
@@ -28,6 +31,13 @@ internal sealed class Configuration : IPluginConfiguration
 
     public WindowConfig TurnInWindowConfig { get; } = new();
     public WindowConfig ConfigWindowConfig { get; } = new();
+
+    internal sealed class PurchaseOption
+    {
+        public uint ItemId { get; set; }
+        public bool SameQuantityForAllLists { get; set; }
+        public int GlobalLimit { get; set; }
+    }
 
     internal sealed class PurchasePriority
     {
@@ -59,9 +69,9 @@ internal sealed class Configuration : IPluginConfiguration
 
     public bool AddVentureIfNoItemToPurchaseSelected()
     {
-        if (ItemsAvailableForPurchase.Count == 0)
+        if (ItemsAvailableToPurchase.Count == 0)
         {
-            ItemsAvailableForPurchase.Add(ItemIds.Venture);
+            ItemsAvailableToPurchase.Add(new PurchaseOption { ItemId = ItemIds.Venture });
             return true;
         }
 
