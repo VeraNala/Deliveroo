@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Text.Json.Serialization;
 using Dalamud.Configuration;
 using Dalamud.Game.ClientState.Keys;
 using Dalamud.Game.Text;
@@ -29,6 +31,9 @@ internal sealed class Configuration : IPluginConfiguration
 
     internal sealed class PurchasePriority
     {
+        [JsonIgnore]
+        public Guid InternalId { get; } = Guid.NewGuid();
+
         public uint ItemId { get; set; }
         public int Limit { get; set; }
         public bool Enabled { get; set; } = true;

@@ -56,6 +56,7 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
     private readonly GameFunctions _gameFunctions;
 
     private bool _state;
+    private Guid? _draggedItem;
 
     public TurnInWindow(DeliverooPlugin plugin, IDalamudPluginInterface pluginInterface, Configuration configuration,
         ICondition condition, IClientState clientState, GcRewardsCache gcRewardsCache, ConfigWindow configWindow,
@@ -359,11 +360,17 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
             itemsWrapper.Save();
         }
 
-        int? itemToRemove = null;
+        Configuration.PurchasePriority? itemToRemove = null;
         Configuration.PurchasePriority? itemToAdd = null;
         int indexToAdd = 0;
+
+        float width = ImGui.GetContentRegionAvail().X;
+        List<(Vector2 TopLeft, Vector2 BottomRight)> itemPositions = [];
+
         for (int i = 0; i < itemsWrapper.GetItemsToPurchase().Count; ++i)
         {
+            Vector2 topLeft = ImGui.GetCursorScreenPos() + new Vector2(0, -ImGui.GetStyle().ItemSpacing.Y / 2);
+
             ImGui.PushID($"ItemToBuy{i}");
             Configuration.PurchasePriority item = itemsWrapper.GetItemsToPurchase()[i];
 
@@ -437,6 +444,16 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
 
             indentX = ImGui.GetCursorPosX() - indentX;
 
+            ImGui.PushFont(UiBuilder.IconFont);
+            ImGui.SetNextItemWidth(width -
+                           ImGui.GetStyle().WindowPadding.X -
+                           ImGui.CalcTextSize(FontAwesomeIcon.Circle.ToIconString()).X -
+                           ImGui.CalcTextSize(FontAwesomeIcon.ArrowsUpDown.ToIconString()).X -
+                           ImGui.CalcTextSize(FontAwesomeIcon.Times.ToIconString()).X -
+                           ImGui.GetStyle().FramePadding.X * 8 -
+                           ImGui.GetStyle().ItemSpacing.X * 2 - 3 * 3);
+            ImGui.PopFont();
+
             if (ImGui.Combo("", ref comboValueIndex,
                     comboValues.Select(x => item.CheckRetainerInventory ? x.NameWithRetainers : x.NameWithoutRetainers)
                         .ToArray(), comboValues.Count))
@@ -450,30 +467,40 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
 
             if (itemsWrapper.GetItemsToPurchase().Count >= 2)
             {
-                ImGui.SameLine();
-                if (ImGuiComponents.IconButton($"##Up{i}", FontAwesomeIcon.ArrowUp))
-                {
-                    itemToAdd = item;
-                    if (i > 0)
-                        indexToAdd = i - 1;
-                    else
-                        indexToAdd = itemsWrapper.GetItemsToPurchase().Count - 1;
-                }
+                ImGui.PushFont(UiBuilder.IconFont);
+                ImGui.SameLine(ImGui.GetContentRegionAvail().X +
+                               ImGui.GetStyle().WindowPadding.X -
+                               ImGui.CalcTextSize(FontAwesomeIcon.ArrowsUpDown.ToIconString()).X -
+                               ImGui.CalcTextSize(FontAwesomeIcon.Times.ToIconString()).X -
+                               ImGui.GetStyle().FramePadding.X * 4 -
+                               ImGui.GetStyle().ItemSpacing.X);
+                ImGui.PopFont();
 
-                ImGui.SameLine(0, 0);
-                if (ImGuiComponents.IconButton($"##Down{i}", FontAwesomeIcon.ArrowDown))
+                if (_draggedItem == item.InternalId)
                 {
-                    itemToAdd = item;
-                    if (i < itemsWrapper.GetItemsToPurchase().Count - 1)
-                        indexToAdd = i + 1;
-                    else
-                        indexToAdd = 0;
+                    ImGuiComponents.IconButton("##Move", FontAwesomeIcon.ArrowsUpDown,
+                        ImGui.ColorConvertU32ToFloat4(ImGui.GetColorU32(ImGuiCol.ButtonActive)));
                 }
+                else
+                    ImGuiComponents.IconButton("##Move", FontAwesomeIcon.ArrowsUpDown);
+
+                if (_draggedItem == null && ImGui.IsItemActive() && ImGui.IsMouseDragging(ImGuiMouseButton.Left))
+                    _draggedItem = item.InternalId;
 
                 ImGui.SameLine();
-                if (ImGuiComponents.IconButton($"###Remove{i}", FontAwesomeIcon.Times))
-                    itemToRemove = i;
             }
+            else
+            {
+                ImGui.PushFont(UiBuilder.IconFont);
+                ImGui.SameLine(ImGui.GetContentRegionAvail().X +
+                               ImGui.GetStyle().WindowPadding.X -
+                               ImGui.CalcTextSize(FontAwesomeIcon.Times.ToIconString()).X -
+                               ImGui.GetStyle().FramePadding.X * 2);
+                ImGui.PopFont();
+            }
+
+            if (ImGuiComponents.IconButton($"###Remove{i}", FontAwesomeIcon.Times))
+                itemToRemove = item;
 
             if (enabled)
             {
@@ -516,18 +543,42 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
             }
 
             ImGui.PopID();
+
+            Vector2 bottomRight = new Vector2(topLeft.X + width,
+                ImGui.GetCursorScreenPos().Y - ImGui.GetStyle().ItemSpacing.Y + 2);
+            itemPositions.Add((topLeft, bottomRight));
+        }
+
+        if (!ImGui.IsMouseDragging(ImGuiMouseButton.Left))
+            _draggedItem = null;
+        else if (_draggedItem != null)
+        {
+            var items = itemsWrapper.GetItemsToPurchase().ToList();
+            var draggedItem = items.Single(x => x.InternalId == _draggedItem);
+            int oldIndex = items.IndexOf(draggedItem);
+
+            var (topLeft, bottomRight) = itemPositions[oldIndex];
+            ImGui.GetWindowDrawList().AddRect(topLeft, bottomRight, ImGui.GetColorU32(ImGuiColors.DalamudGrey), 3f,
+                ImDrawFlags.RoundCornersAll);
+
+            int newIndex = itemPositions.FindIndex(x => ImGui.IsMouseHoveringRect(x.TopLeft, x.BottomRight, true));
+            if (newIndex >= 0 && oldIndex != newIndex)
+            {
+                itemToAdd = items.Single(x => x.InternalId == _draggedItem);
+                indexToAdd = newIndex;
+            }
+        }
+
+        if (itemToRemove != null)
+        {
+            itemsWrapper.Remove(itemToRemove);
+            itemsWrapper.Save();
         }
 
         if (itemToAdd != null)
         {
             itemsWrapper.Remove(itemToAdd);
             itemsWrapper.Insert(indexToAdd, itemToAdd);
-            itemsWrapper.Save();
-        }
-
-        if (itemToRemove != null)
-        {
-            itemsWrapper.RemoveAt(itemToRemove.Value);
             itemsWrapper.Save();
         }
 
