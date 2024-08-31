@@ -416,7 +416,7 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
             itemsWrapper.Save();
         }
 
-        if (_configuration.ItemsToPurchase.Any(x =>
+        if (_configuration.ItemsAvailableToPurchase.Any(x =>
                 itemsWrapper.GetItemsToPurchase().All(y => x.ItemId != y.ItemId)))
         {
             if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.Plus, "Add Item"))
@@ -430,7 +430,8 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
                     {
                         if (ImGui.MenuItem($"{reward.Name}##{purchaseOption.ItemId}"))
                         {
-                            itemsWrapper.Add(new Configuration.PurchasePriority { ItemId = purchaseOption.ItemId, Limit = 0 });
+                            itemsWrapper.Add(new Configuration.PurchasePriority
+                                { ItemId = purchaseOption.ItemId, Limit = 0 });
                             itemsWrapper.Save();
                             ImGui.CloseCurrentPopup();
                         }
@@ -441,9 +442,10 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
             }
 
             ImGui.SameLine();
-            if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.Cog, "Configure available Items"))
-                _configWindow.IsOpen = true;
         }
+
+        if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.Cog, "Configure available Items"))
+                _configWindow.IsOpen = true;
     }
 
     private void DrawItemToBuy(GrandCompany grandCompany, int i, IItemsToPurchase itemsWrapper,
