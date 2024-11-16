@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using Dalamud.Plugin.Services;
-using Lumina.Excel.GeneratedSheets;
+using Lumina.Excel.Sheets;
 using GrandCompany = FFXIVClientStructs.FFXIV.Client.UI.Agent.GrandCompany;
 
 namespace Deliveroo.GameData;
@@ -10,31 +10,32 @@ internal sealed class GcRewardsCache
 {
     public GcRewardsCache(IDataManager dataManager)
     {
-        var categories = dataManager.GetExcelSheet<GCScripShopCategory>()!
+        var categories = dataManager.GetExcelSheet<GCScripShopCategory>()
             .Where(x => x.RowId > 0)
             .ToDictionary(x => x.RowId,
                 x =>
-                    (GrandCompany: (GrandCompany)x.GrandCompany.Row,
+                    (GrandCompany: (GrandCompany)x.GrandCompany.RowId,
                         Tier: (RewardTier)x.Tier,
                         SubCategory: (RewardSubCategory)x.SubCategory));
 
-        Rewards = dataManager.GetExcelSheet<GCScripShopItem>()!
-            .Where(x => x.RowId > 0 && x.Item.Row > 0)
+        Rewards = dataManager.GetSubrowExcelSheet<GCScripShopItem>()
+            .SelectMany(x => x)
+            .Where(x => x.RowId > 0 && x.Item.RowId > 0)
             .GroupBy(item =>
             {
                 var category = categories[item.RowId];
                 return new
                 {
-                    ItemId = item.Item.Row,
-                    Name = item.Item.Value!.Name.ToString(),
-                    IconId = item.Item.Row == ItemIds.Venture ? 25917 : item.Item.Value!.Icon,
+                    ItemId = item.Item.RowId,
+                    Name = item.Item.Value.Name.ToString(),
+                    IconId = item.Item.RowId == ItemIds.Venture ? 25917 : item.Item.Value.Icon,
                     category.Tier,
                     category.SubCategory,
-                    RequiredRank = item.RequiredGrandCompanyRank.Row,
-                    item.Item!.Value.StackSize,
+                    RequiredRank = item.RequiredGrandCompanyRank.RowId,
+                    item.Item.Value.StackSize,
                     SealCost = item.CostGCSeals,
-                    InventoryLimit = item.Item.Value!.IsUnique ? 1
-                        : item.Item.Row == ItemIds.Venture ? item.Item.Value!.StackSize
+                    InventoryLimit = item.Item.Value.IsUnique ? 1
+                        : item.Item.RowId == ItemIds.Venture ? item.Item.Value.StackSize
                         : int.MaxValue,
                 };
             })

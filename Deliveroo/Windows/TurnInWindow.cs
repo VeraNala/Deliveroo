@@ -126,7 +126,7 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
 
     private bool IsOnHomeWorld =>
         _clientState.LocalPlayer == null ||
-        _clientState.LocalPlayer.HomeWorld.Id == _clientState.LocalPlayer.CurrentWorld.Id;
+        _clientState.LocalPlayer.HomeWorld.RowId == _clientState.LocalPlayer.CurrentWorld.RowId;
 
     private IItemsToPurchase ItemsWrapper => UseCharacterSpecificItemsToPurchase
         ? new CharacterSpecificItemsToPurchase(_plugin.CharacterConfiguration!, _pluginInterface)
@@ -516,13 +516,13 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
         }
 
         var comboItem = comboValues[comboValueIndex];
-        var icon = _iconCache.GetIcon(comboItem.Item.IconId);
-        if (icon.TryGetWrap(out IDalamudTextureWrap? wrap, out _))
+        using (var icon = _iconCache.GetIcon(comboItem.Item.IconId))
         {
-            ImGui.Image(wrap.ImGuiHandle, new Vector2(ImGui.GetFrameHeight()));
-            ImGui.SameLine(0, 3);
-
-            wrap.Dispose();
+            if (icon != null)
+            {
+                ImGui.Image(icon.ImGuiHandle, new Vector2(ImGui.GetFrameHeight()));
+                ImGui.SameLine(0, 3);
+            }
         }
 
         indentX = ImGui.GetCursorPosX() - indentX;

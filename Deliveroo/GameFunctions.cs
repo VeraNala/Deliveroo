@@ -15,8 +15,10 @@ using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Common.Math;
+using FFXIVClientStructs.FFXIV.Component.Excel;
 using Lumina.Excel;
-using Lumina.Excel.GeneratedSheets;
+using Lumina.Excel.Sheets;
+using Lumina.Text.ReadOnly;
 using GrandCompany = FFXIVClientStructs.FFXIV.Client.UI.Agent.GrandCompany;
 
 namespace Deliveroo;
@@ -41,7 +43,7 @@ internal sealed class GameFunctions : IDisposable
         _pluginLog = pluginLog;
 
 
-        _gcRankInfo = dataManager.GetExcelSheet<GrandCompanyRank>()!.Where(x => x.RowId > 0)
+        _gcRankInfo = dataManager.GetExcelSheet<GrandCompanyRank>().Where(x => x.RowId > 0)
             .ToDictionary(x => x.RowId, x => new GcRankInfo
             {
                 NameTwinAddersMale = ExtractRankName<GCRankGridaniaMaleText>(dataManager, x.RowId, r => r.Singular),
@@ -53,7 +55,7 @@ internal sealed class GameFunctions : IDisposable
                     ExtractRankName<GCRankUldahFemaleText>(dataManager, x.RowId, r => r.Singular),
                 MaxSeals = x.MaxSeals,
                 RequiredSeals = x.RequiredSeals,
-                RequiredHuntingLog = x.Unknown10,
+                RequiredHuntingLog = x.Unknown0,
             })
             .AsReadOnly();
 
@@ -61,14 +63,14 @@ internal sealed class GameFunctions : IDisposable
         _clientState.TerritoryChanged += TerritoryChanged;
     }
 
-    private static string ExtractRankName<T>(IDataManager dataManager, uint rankId, Func<T, Lumina.Text.SeString> func)
-        where T : ExcelRow
+    private static string ExtractRankName<T>(IDataManager dataManager, uint rankId, Func<T, ReadOnlySeString> func)
+        where T : struct, IExcelRow<T>
     {
-        return func(dataManager.GetExcelSheet<T>()!.GetRow(rankId)!).ToString();
+        return func(dataManager.GetExcelSheet<T>().GetRow(rankId)).ToString();
     }
 
 
-    private void Logout()
+    private void Logout(int type, int code)
     {
         _retainerItemCache.Clear();
     }

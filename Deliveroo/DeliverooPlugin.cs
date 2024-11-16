@@ -218,11 +218,11 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
             {
                 if (CharacterConfiguration.CachedPlayerName != _clientState.LocalPlayer!.Name.ToString() ||
                     CharacterConfiguration.CachedWorldName !=
-                    _clientState.LocalPlayer.HomeWorld.GameData!.Name.ToString())
+                    _clientState.LocalPlayer.HomeWorld.Value.Name.ToString())
                 {
                     CharacterConfiguration.CachedPlayerName = _clientState.LocalPlayer!.Name.ToString();
                     CharacterConfiguration.CachedWorldName =
-                        _clientState.LocalPlayer.HomeWorld.GameData!.Name.ToString();
+                        _clientState.LocalPlayer.HomeWorld.Value.Name.ToString();
 
                     CharacterConfiguration.Save(_pluginInterface);
                 }
@@ -242,7 +242,7 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
         }
     }
 
-    private void Logout()
+    private void Logout(int type, int code)
     {
         CharacterConfiguration = null;
     }

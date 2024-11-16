@@ -1,13 +1,12 @@
-﻿using System;
-using System.Data;
+﻿using System.Data;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.RegularExpressions;
 using Dalamud.Game.Text;
 using Dalamud.Plugin.Services;
 using LLib;
 using Lumina.Excel;
-using Lumina.Excel.CustomSheets;
-using Lumina.Excel.GeneratedSheets;
+using Lumina.Excel.Sheets;
+using Lumina.Text.ReadOnly;
 
 namespace Deliveroo.GameData;
 
@@ -27,7 +26,7 @@ internal sealed class GameStrings
             dataManager.GetString<Addon>(102434, addon => addon.Text, pluginLog)?.ReplaceLineEndings("")
             ?? throw new ConstraintException($"Unable to resolve {nameof(TradeHighQualityItem)}");
 
-        var rankUpFc = dataManager.GetExcelSheet<LogMessage>()!.GetRow(3123)!;
+        var rankUpFc = dataManager.GetExcelSheet<LogMessage>().GetRow(3123);
         RankUpFc = rankUpFc.GetRegex(logMessage => logMessage.Text, pluginLog)
                    ?? throw new ConstraintException($"Unable to resolve {nameof(RankUpFc)}");
         RankUpFcType = (XivChatType)rankUpFc.LogKind;
@@ -43,7 +42,14 @@ internal sealed class GameStrings
 
     [Sheet("custom/000/ComDefGrandCompanyOfficer_00073")]
     [SuppressMessage("Performance", "CA1812")]
-    private sealed class ComDefGrandCompanyOfficer : QuestDialogueText
+    private readonly struct ComDefGrandCompanyOfficer(ExcelPage page, uint offset, uint row) : IQuestDialogueText, IExcelRow<ComDefGrandCompanyOfficer>
     {
-    }
+    public uint RowId => row;
+
+    public ReadOnlySeString Key => page.ReadString(offset, offset);
+    public ReadOnlySeString Value => page.ReadString(offset + 4, offset);
+
+    static ComDefGrandCompanyOfficer IExcelRow<ComDefGrandCompanyOfficer>.Create(ExcelPage page, uint offset, uint row) =>
+        new(page, offset, row);
+}
 }

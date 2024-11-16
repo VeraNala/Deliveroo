@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 using Dalamud.Plugin.Services;
-using Lumina.Excel.GeneratedSheets;
+using Lumina.Excel.Sheets;
 
 namespace Deliveroo.GameData;
 
@@ -10,7 +10,7 @@ internal sealed class ItemCache
 
     public ItemCache(IDataManager dataManager)
     {
-        foreach (var item in dataManager.GetExcelSheet<Item>()!)
+        foreach (var item in dataManager.GetExcelSheet<Item>())
         {
             string name = item.Name.ToString();
             if (string.IsNullOrWhiteSpace(name))
@@ -19,7 +19,7 @@ internal sealed class ItemCache
             if (_itemNamesToIds.TryGetValue(name, out HashSet<uint>? itemIds))
                 itemIds.Add(item.RowId);
             else
-                _itemNamesToIds.Add(name, new HashSet<uint>{item.RowId});
+                _itemNamesToIds.Add(name, [item.RowId]);
         }
     }
 

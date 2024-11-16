@@ -103,66 +103,66 @@ internal sealed class ConfigWindow : LWindow, IPersistableWindowConfig
                         _configuration.ItemsAvailableToPurchase.Count == 1 && purchaseOption.ItemId == ItemIds.Venture);
 
                     var item = _itemLookup[purchaseOption.ItemId];
-                    var icon = _iconCache.GetIcon(item.IconId);
-                    Vector2 pos = ImGui.GetCursorPos();
-                    Vector2 iconSize = new Vector2(ImGui.GetTextLineHeight() + ImGui.GetStyle().ItemSpacing.Y);
-
-                    icon.TryGetWrap(out IDalamudTextureWrap? wrap, out _);
-                    if (wrap != null)
+                    using (var icon = _iconCache.GetIcon(item.IconId))
                     {
-                        ImGui.SetCursorPos(pos + new Vector2(iconSize.X + ImGui.GetStyle().FramePadding.X,
-                            ImGui.GetStyle().ItemSpacing.Y / 2));
-                    }
+                        Vector2 pos = ImGui.GetCursorPos();
+                        Vector2 iconSize = new Vector2(ImGui.GetTextLineHeight() + ImGui.GetStyle().ItemSpacing.Y);
 
-                    ImGui.Selectable($"{item.Name}{(item.Limited ? $" {SeIconChar.Hyadelyn.ToIconString()}" : "")}{(purchaseOption.SameQuantityForAllLists ? $" {((SeIconChar)57412).ToIconString()} (Limit: {purchaseOption.GlobalLimit:N0})" : "")}",
-                        false, ImGuiSelectableFlags.SpanAllColumns);
-
-                    if (ImGui.BeginDragDropSource())
-                    {
-                        ImGui.SetDragDropPayload("DeliverooDragDrop", nint.Zero, 0);
-                        _dragDropSource = purchaseOption;
-
-                        ImGui.EndDragDropSource();
-                    }
-
-                    if (ImGui.BeginDragDropTarget())
-                    {
-                        if (_dragDropSource != null &&
-                            ImGui.AcceptDragDropPayload("DeliverooDragDrop").NativePtr != null)
+                        if (icon != null)
                         {
-                            itemToAdd = _dragDropSource;
-                            indexToAdd = i;
-
-                            _dragDropSource = null;
+                            ImGui.SetCursorPos(pos + new Vector2(iconSize.X + ImGui.GetStyle().FramePadding.X,
+                                ImGui.GetStyle().ItemSpacing.Y / 2));
                         }
 
-                        ImGui.EndDragDropTarget();
-                    }
+                        ImGui.Selectable(
+                            $"{item.Name}{(item.Limited ? $" {SeIconChar.Hyadelyn.ToIconString()}" : "")}{(purchaseOption.SameQuantityForAllLists ? $" {((SeIconChar)57412).ToIconString()} (Limit: {purchaseOption.GlobalLimit:N0})" : "")}",
+                            false, ImGuiSelectableFlags.SpanAllColumns);
 
-                    ImGui.OpenPopupOnItemClick($"###ctx{i}", ImGuiPopupFlags.MouseButtonRight);
-                    if (ImGui.BeginPopup($"###ctx{i}"))
-                    {
-                        bool sameQuantityForAllLists = purchaseOption.SameQuantityForAllLists;
-                        if (ImGui.MenuItem("Use same quantity for global and character-specific lists", null,
-                                ref sameQuantityForAllLists))
+                        if (ImGui.BeginDragDropSource())
                         {
-                            purchaseOption.SameQuantityForAllLists = sameQuantityForAllLists;
-                            Save();
+                            ImGui.SetDragDropPayload("DeliverooDragDrop", nint.Zero, 0);
+                            _dragDropSource = purchaseOption;
+
+                            ImGui.EndDragDropSource();
                         }
 
-                        if (ImGui.MenuItem($"Remove {_itemLookup[purchaseOption.ItemId].Name}"))
-                            itemToRemove = purchaseOption;
+                        if (ImGui.BeginDragDropTarget())
+                        {
+                            if (_dragDropSource != null &&
+                                ImGui.AcceptDragDropPayload("DeliverooDragDrop").NativePtr != null)
+                            {
+                                itemToAdd = _dragDropSource;
+                                indexToAdd = i;
 
-                        ImGui.EndPopup();
-                    }
+                                _dragDropSource = null;
+                            }
 
-                    if (wrap != null)
-                    {
-                        ImGui.SameLine(0, 0);
-                        ImGui.SetCursorPos(pos);
-                        ImGui.Image(wrap.ImGuiHandle, iconSize);
+                            ImGui.EndDragDropTarget();
+                        }
 
-                        wrap.Dispose();
+                        ImGui.OpenPopupOnItemClick($"###ctx{i}", ImGuiPopupFlags.MouseButtonRight);
+                        if (ImGui.BeginPopup($"###ctx{i}"))
+                        {
+                            bool sameQuantityForAllLists = purchaseOption.SameQuantityForAllLists;
+                            if (ImGui.MenuItem("Use same quantity for global and character-specific lists", null,
+                                    ref sameQuantityForAllLists))
+                            {
+                                purchaseOption.SameQuantityForAllLists = sameQuantityForAllLists;
+                                Save();
+                            }
+
+                            if (ImGui.MenuItem($"Remove {_itemLookup[purchaseOption.ItemId].Name}"))
+                                itemToRemove = purchaseOption;
+
+                            ImGui.EndPopup();
+                        }
+
+                        if (icon != null)
+                        {
+                            ImGui.SameLine(0, 0);
+                            ImGui.SetCursorPos(pos);
+                            ImGui.Image(icon.ImGuiHandle, iconSize);
+                        }
                     }
 
                     ImGui.EndDisabled();
@@ -202,14 +202,14 @@ internal sealed class ConfigWindow : LWindow, IPersistableWindowConfig
                 foreach (var item in comboValues.Where(x =>
                              x.Name.Contains(_searchString, StringComparison.OrdinalIgnoreCase)))
                 {
-                    var icon = _iconCache.GetIcon(item.IconId);
-                    if (icon.TryGetWrap(out IDalamudTextureWrap? wrap, out _))
+                    using (var icon = _iconCache.GetIcon(item.IconId))
                     {
-                        ImGui.Image(wrap.ImGuiHandle, new Vector2(ImGui.GetFrameHeight()));
-                        ImGui.SameLine();
-                        ImGui.SetCursorPosY(ImGui.GetCursorPosY() + ImGui.GetStyle().FramePadding.X);
-
-                        wrap.Dispose();
+                        if (icon != null)
+                        {
+                            ImGui.Image(icon.ImGuiHandle, new Vector2(ImGui.GetFrameHeight()));
+                            ImGui.SameLine();
+                            ImGui.SetCursorPosY(ImGui.GetCursorPosY() + ImGui.GetStyle().FramePadding.X);
+                        }
                     }
 
                     bool addThis =
@@ -217,7 +217,8 @@ internal sealed class ConfigWindow : LWindow, IPersistableWindowConfig
                             $"{item.Name}{(item.Limited ? $" {SeIconChar.Hyadelyn.ToIconString()}" : "")}##SelectVenture{item.IconId}");
                     if (addThis || addFirst)
                     {
-                        _configuration.ItemsAvailableToPurchase.Add(new Configuration.PurchaseOption { ItemId = item.ItemId });
+                        _configuration.ItemsAvailableToPurchase.Add(new Configuration.PurchaseOption
+                            { ItemId = item.ItemId });
 
                         if (addFirst)
                         {
@@ -243,7 +244,7 @@ internal sealed class ConfigWindow : LWindow, IPersistableWindowConfig
             if (_clientState is { IsLoggedIn: true, LocalContentId: > 0 })
             {
                 string currentCharacterName = _clientState.LocalPlayer!.Name.ToString();
-                string currentWorldName = _clientState.LocalPlayer.HomeWorld.GameData!.Name.ToString();
+                string currentWorldName = _clientState.LocalPlayer.HomeWorld.Value.Name.ToString();
                 ImGui.Text($"Current Character: {currentCharacterName} @ {currentWorldName}");
                 ImGui.Spacing();
                 ImGui.Separator();
