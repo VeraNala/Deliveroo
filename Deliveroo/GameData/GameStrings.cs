@@ -42,14 +42,16 @@ internal sealed class GameStrings
 
     [Sheet("custom/000/ComDefGrandCompanyOfficer_00073")]
     [SuppressMessage("Performance", "CA1812")]
-    private readonly struct ComDefGrandCompanyOfficer(ExcelPage page, uint offset, uint row) : IQuestDialogueText, IExcelRow<ComDefGrandCompanyOfficer>
+    private readonly struct ComDefGrandCompanyOfficer(ExcelPage page, uint offset, uint row)
+        : IQuestDialogueText, IExcelRow<ComDefGrandCompanyOfficer>
     {
-    public uint RowId => row;
+        public uint RowId => row;
 
-    public ReadOnlySeString Key => page.ReadString(offset, offset);
-    public ReadOnlySeString Value => page.ReadString(offset + 4, offset);
+        public ReadOnlySeString Key => page.ReadString(offset, offset);
+        public ReadOnlySeString Value => page.ReadString(offset + 4, offset);
 
-    static ComDefGrandCompanyOfficer IExcelRow<ComDefGrandCompanyOfficer>.Create(ExcelPage page, uint offset, uint row) =>
-        new(page, offset, row);
-}
+        static ComDefGrandCompanyOfficer IExcelRow<ComDefGrandCompanyOfficer>.Create(ExcelPage page, uint offset,
+            uint row) =>
+            new(page, offset, row);
+    }
 }
