@@ -23,7 +23,7 @@ internal sealed class GameStrings
         ExchangeItems = dataManager.GetRegex<Addon>(3290, addon => addon.Text, pluginLog)
                         ?? throw new ConstraintException($"Unable to resolve {nameof(ExchangeItems)}");
         TradeHighQualityItem =
-            dataManager.GetString<Addon>(102434, addon => addon.Text, pluginLog)?.ReplaceLineEndings("")
+            dataManager.GetString<Addon>(102434, addon => addon.Text, pluginLog)
             ?? throw new ConstraintException($"Unable to resolve {nameof(TradeHighQualityItem)}");
 
         var rankUpFc = dataManager.GetExcelSheet<LogMessage>().GetRow(3123);
