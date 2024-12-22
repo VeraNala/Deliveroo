@@ -10,6 +10,7 @@ using Dalamud.Interface.Colors;
 using Dalamud.Interface.Components;
 using Dalamud.Interface.Textures.TextureWraps;
 using Dalamud.Interface.Utility;
+using Dalamud.Interface.Utility.Raii;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using Deliveroo.GameData;
@@ -21,7 +22,7 @@ using LLib.ImGui;
 
 namespace Deliveroo.Windows;
 
-internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
+internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig<Configuration.MinimizableWindowConfig>
 {
     private static readonly IReadOnlyList<InventoryType> InventoryTypes = new[]
     {
@@ -55,6 +56,7 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
     private readonly IconCache _iconCache;
     private readonly IKeyState _keyState;
     private readonly GameFunctions _gameFunctions;
+    private readonly TitleBarButton _minimizeButton;
 
     private bool _state;
     private Guid? _draggedItem;
@@ -88,6 +90,20 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
         ShowCloseButton = false;
         AllowClickthrough = false;
 
+        _minimizeButton = new TitleBarButton
+        {
+            Icon = FontAwesomeIcon.Minus,
+            Priority = int.MinValue,
+            IconOffset = new Vector2(1.5f, 1),
+            Click = _ =>
+            {
+                IsMinimized = !IsMinimized;
+                _minimizeButton!.Icon = IsMinimized ? FontAwesomeIcon.WindowMaximize : FontAwesomeIcon.Minus;
+            },
+            AvailableClickthrough = true,
+        };
+        TitleBarButtons.Insert(0, _minimizeButton);
+
         TitleBarButtons.Add(new TitleBarButton
         {
             Icon = FontAwesomeIcon.Cog,
@@ -103,7 +119,17 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
         });
     }
 
-    public WindowConfig WindowConfig => _configuration.TurnInWindowConfig;
+    public Configuration.MinimizableWindowConfig WindowConfig => _configuration.TurnInWindowConfig;
+
+    private bool IsMinimized
+    {
+        get => WindowConfig.IsMinimized;
+        set
+        {
+            WindowConfig.IsMinimized = value;
+            SaveWindowConfig();
+        }
+    }
 
     public bool State
     {
@@ -218,56 +244,59 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
         }
 
         float indentSize = ImGui.GetFrameHeight() + ImGui.GetStyle().ItemInnerSpacing.X;
-        ImGui.Indent(indentSize);
         if (!string.IsNullOrEmpty(Error))
         {
-            ImGui.TextColored(ImGuiColors.DalamudRed, Error);
+            using (ImRaii.PushIndent(indentSize))
+                ImGui.TextColored(ImGuiColors.DalamudRed, Error);
         }
         else
         {
-            if (_configuration.BehaviorOnOtherWorld == Configuration.EBehaviorOnOtherWorld.Warning && !IsOnHomeWorld)
+            using (ImRaii.PushIndent(indentSize))
             {
-                ImGui.TextColored(ImGuiColors.DalamudRed,
-                    "You are not on your home world and will not earn FC points.");
-            }
-
-            if (Multiplier == 1m)
-            {
-                ImGui.TextColored(ImGuiColors.DalamudYellow, "You do not have an active seal buff.");
-            }
-            else
-            {
-                ImGui.TextColored(ImGuiColors.HealerGreen, $"Current Buff: {(Multiplier - 1m) * 100:N0}%%");
-            }
-
-            if (Multiplier <= 1.10m)
-            {
-                InventoryManager* inventoryManager = InventoryManager.Instance();
-                AgentInventoryContext* agentInventoryContext = AgentInventoryContext.Instance();
-                if (inventoryManager->GetInventoryItemCount(ItemIds.PrioritySealAllowance) > 0)
+                if (_configuration.BehaviorOnOtherWorld == Configuration.EBehaviorOnOtherWorld.Warning &&
+                    !IsOnHomeWorld)
                 {
-                    ImGui.BeginDisabled(_condition[ConditionFlag.OccupiedInQuestEvent] ||
-                                        _condition[ConditionFlag.Casting] ||
-                                        agentInventoryContext == null);
-                    if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.Bolt, "Use Priority Seal Allowance (15%)"))
-                    {
-                        agentInventoryContext->UseItem(ItemIds.PrioritySealAllowance);
-                    }
+                    ImGui.TextColored(ImGuiColors.DalamudRed,
+                        "You are not on your home world and will not earn FC points.");
+                }
 
-                    ImGui.EndDisabled();
+                if (Multiplier == 1m)
+                {
+                    ImGui.TextColored(ImGuiColors.DalamudYellow, "You do not have an active seal buff.");
+                }
+                else
+                {
+                    ImGui.TextColored(ImGuiColors.HealerGreen, $"Current Buff: {(Multiplier - 1m) * 100:N0}%%");
+                }
+
+                if (Multiplier <= 1.10m)
+                {
+                    InventoryManager* inventoryManager = InventoryManager.Instance();
+                    AgentInventoryContext* agentInventoryContext = AgentInventoryContext.Instance();
+                    if (inventoryManager->GetInventoryItemCount(ItemIds.PrioritySealAllowance) > 0)
+                    {
+                        ImGui.BeginDisabled(_condition[ConditionFlag.OccupiedInQuestEvent] ||
+                                            _condition[ConditionFlag.Casting] ||
+                                            agentInventoryContext == null);
+                        if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.Bolt,
+                                "Use Priority Seal Allowance (15%)"))
+                        {
+                            agentInventoryContext->UseItem(ItemIds.PrioritySealAllowance);
+                        }
+
+                        ImGui.EndDisabled();
+                    }
                 }
             }
 
-            ImGui.Unindent(indentSize);
-            ImGui.Separator();
-            ImGui.BeginDisabled(state);
-
-            DrawItemsToBuy(grandCompany);
-
-            ImGui.EndDisabled();
+            if (!IsMinimized)
+            {
+                ImGui.Separator();
+                using (ImRaii.Disabled(state))
+                    DrawItemsToBuy(grandCompany);
+            }
         }
 
-        ImGui.Separator();
         if (_configuration.QuickTurnInKey != VirtualKey.NO_KEY)
         {
             var key = _configuration.QuickTurnInKey switch
@@ -278,14 +307,22 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
                 _ => _configuration.QuickTurnInKey.ToString()
             };
             if (!State && _keyState[_configuration.QuickTurnInKey])
+            {
+                ImGui.Separator();
                 ImGui.TextColored(ImGuiColors.HealerGreen, "Click an item to turn it in without confirmation");
-            else
+            }
+            else if (!IsMinimized)
+            {
+                ImGui.Separator();
                 ImGui.Text($"Hold '{key}' when clicking an item to turn it in without confirmation.");
-
-            ImGui.Separator();
+            }
         }
 
-        ImGui.Text($"Debug (State): {_plugin.CurrentStage}");
+        if (!IsMinimized)
+        {
+            ImGui.Separator();
+            ImGui.Text($"Debug (State): {_plugin.CurrentStage}");
+        }
     }
 
     private unsafe void DrawNextRankPrequesites()
@@ -445,7 +482,7 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
         }
 
         if (ImGuiComponents.IconButtonWithText(FontAwesomeIcon.Cog, "Configure available Items"))
-                _configWindow.IsOpen = true;
+            _configWindow.IsOpen = true;
     }
 
     private void DrawItemToBuy(GrandCompany grandCompany, int i, IItemsToPurchase itemsWrapper,
@@ -603,7 +640,7 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig
                     : "Remaining items to buy";
                 if (ImGui.InputInt(label, ref limit, stepSize, stepSize * 10))
                 {
-                    int newLimit =  Math.Min(Math.Max(0, limit), (int)comboItem.Item.InventoryLimit);
+                    int newLimit = Math.Min(Math.Max(0, limit), (int)comboItem.Item.InventoryLimit);
                     if (purchaseOption != null)
                     {
                         purchaseOption.GlobalLimit = newLimit;

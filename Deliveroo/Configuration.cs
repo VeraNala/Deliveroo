@@ -29,7 +29,7 @@ internal sealed class Configuration : IPluginConfiguration
     public bool UncapFrameRate { get; set; }
     public VirtualKey QuickTurnInKey { get; set; } = VirtualKey.SHIFT;
 
-    public WindowConfig TurnInWindowConfig { get; } = new();
+    public MinimizableWindowConfig TurnInWindowConfig { get; } = new();
     public WindowConfig ConfigWindowConfig { get; } = new();
 
     internal sealed class PurchaseOption
@@ -83,5 +83,10 @@ internal sealed class Configuration : IPluginConfiguration
         None,
         Warning,
         DisableTurnIn,
+    }
+
+    internal sealed class MinimizableWindowConfig : WindowConfig
+    {
+        public bool IsMinimized { get; set; }
     }
 }
