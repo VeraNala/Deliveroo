@@ -92,7 +92,7 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig<Configura
 
         _minimizeButton = new TitleBarButton
         {
-            Icon = FontAwesomeIcon.Minus,
+            Icon = IsMinimized ? FontAwesomeIcon.WindowMaximize : FontAwesomeIcon.Minus,
             Priority = int.MinValue,
             IconOffset = new Vector2(1.5f, 1),
             Click = _ =>
