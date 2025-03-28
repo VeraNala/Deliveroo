@@ -2,7 +2,6 @@
     <PropertyGroup>
         <Version>6.6</Version>
         <OutputPath>dist</OutputPath>
-		<TargetFramework>net9.0-windows</TargetFramework>
 	</PropertyGroup>
 
     <Import Project="..\LLib\LLib.targets"/>
