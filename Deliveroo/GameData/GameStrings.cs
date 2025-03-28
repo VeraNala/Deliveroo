@@ -29,7 +29,7 @@ internal sealed class GameStrings
         var rankUpFc = dataManager.GetExcelSheet<LogMessage>().GetRow(3123);
         RankUpFc = rankUpFc.GetRegex(logMessage => logMessage.Text, pluginLog)
                    ?? throw new ConstraintException($"Unable to resolve {nameof(RankUpFc)}");
-        RankUpFcType = (XivChatType)rankUpFc.LogKind;
+        RankUpFcType = (XivChatType)rankUpFc.LogKind.RowId;
     }
 
 

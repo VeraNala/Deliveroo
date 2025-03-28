@@ -203,7 +203,7 @@ internal sealed class GameFunctions : IDisposable
         var fcStatus = _clientState.LocalPlayer!.StatusList.FirstOrDefault(x => x.StatusId == 414);
         if (fcStatus != null)
         {
-            return 1m + fcStatus.StackCount / 100m;
+            return 1m + fcStatus.Param / 100m;
         }
 
         return 1;

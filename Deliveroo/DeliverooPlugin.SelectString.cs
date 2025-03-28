@@ -2,6 +2,7 @@
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Memory;
+using Dalamud.Utility;
 using FFXIVClientStructs.FFXIV.Client.UI;
 
 namespace Deliveroo;
@@ -47,7 +48,7 @@ partial class DeliverooPlugin
             if (textPointer == null)
                 continue;
 
-            var text = MemoryHelper.ReadSeStringNullTerminated((nint)textPointer).ToString();
+            var text = textPointer.ExtractText();
             _pluginLog.Verbose($"  Choice {i} → {text}");
             if (text == desiredText)
             {
