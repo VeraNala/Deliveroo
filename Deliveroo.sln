@@ -7,6 +7,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Deliveroo", "Deliveroo\Deli
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LLib", "LLib\LLib.csproj", "{B4EFA106-69ED-4E45-8646-425C0708CBAC}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{D980409A-2AA8-44F6-ACA8-C4D14DF0DCBC}"
+	ProjectSection(SolutionItems) = preProject
+		.woodpecker\build.yaml = .woodpecker\build.yaml
+		global.json = global.json
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
