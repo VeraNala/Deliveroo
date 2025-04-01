@@ -45,7 +45,7 @@ partial class DeliverooPlugin
         for (int i = 0; i < entries; ++i)
         {
             var textPointer = addonSelectString->PopupMenu.PopupMenu.EntryNames[i];
-            if (textPointer == null)
+            if (!textPointer.HasValue)
                 continue;
 
             var text = textPointer.ExtractText();

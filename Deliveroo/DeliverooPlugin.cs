@@ -211,35 +211,38 @@ public sealed partial class DeliverooPlugin : IDalamudPlugin
 
     private void Login()
     {
-        try
+        _framework.RunOnFrameworkThread(() =>
         {
-            CharacterConfiguration = CharacterConfiguration.Load(_pluginInterface, _clientState.LocalContentId);
-            if (CharacterConfiguration != null)
+            try
             {
-                if (CharacterConfiguration.CachedPlayerName != _clientState.LocalPlayer!.Name.ToString() ||
-                    CharacterConfiguration.CachedWorldName !=
-                    _clientState.LocalPlayer.HomeWorld.Value.Name.ToString())
+                CharacterConfiguration = CharacterConfiguration.Load(_pluginInterface, _clientState.LocalContentId);
+                if (CharacterConfiguration != null)
                 {
-                    CharacterConfiguration.CachedPlayerName = _clientState.LocalPlayer!.Name.ToString();
-                    CharacterConfiguration.CachedWorldName =
-                        _clientState.LocalPlayer.HomeWorld.Value.Name.ToString();
+                    if (CharacterConfiguration.CachedPlayerName != _clientState.LocalPlayer!.Name.ToString() ||
+                        CharacterConfiguration.CachedWorldName !=
+                        _clientState.LocalPlayer.HomeWorld.Value.Name.ToString())
+                    {
+                        CharacterConfiguration.CachedPlayerName = _clientState.LocalPlayer!.Name.ToString();
+                        CharacterConfiguration.CachedWorldName =
+                            _clientState.LocalPlayer.HomeWorld.Value.Name.ToString();
 
-                    CharacterConfiguration.Save(_pluginInterface);
+                        CharacterConfiguration.Save(_pluginInterface);
+                    }
+
+                    _pluginLog.Information($"Loaded character-specific information for {_clientState.LocalContentId}");
                 }
-
-                _pluginLog.Information($"Loaded character-specific information for {_clientState.LocalContentId}");
+                else
+                {
+                    _pluginLog.Verbose(
+                        $"No character-specific information for {_clientState.LocalContentId}");
+                }
             }
-            else
+            catch (Exception ex)
             {
-                _pluginLog.Verbose(
-                    $"No character-specific information for {_clientState.LocalContentId}");
+                _pluginLog.Error(ex, "Unable to load character configuration");
+                CharacterConfiguration = null;
             }
-        }
-        catch (Exception ex)
-        {
-            _pluginLog.Error(ex, "Unable to load character configuration");
-            CharacterConfiguration = null;
-        }
+        });
     }
 
     private void Logout(int type, int code)
