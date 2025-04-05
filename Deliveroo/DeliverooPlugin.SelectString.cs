@@ -1,9 +1,10 @@
 ﻿using System;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
-using Dalamud.Memory;
 using Dalamud.Utility;
 using FFXIVClientStructs.FFXIV.Client.UI;
+using LLib.GameUI;
+using ValueType = FFXIVClientStructs.FFXIV.Component.GUI.ValueType;
 
 namespace Deliveroo;
 
@@ -40,23 +41,21 @@ partial class DeliverooPlugin
             return false;
 
         _pluginLog.Verbose($"Looking for '{desiredText}' in prompt");
-        int entries = addonSelectString->PopupMenu.PopupMenu.EntryCount;
-
-        for (int i = 0; i < entries; ++i)
+        for (ushort i = 7; i < addonSelectString->AtkUnitBase.AtkValuesCount; ++i)
         {
-            var textPointer = addonSelectString->PopupMenu.PopupMenu.EntryNames[i];
-            if (!textPointer.HasValue)
-                continue;
-
-            var text = textPointer.ExtractText();
-            _pluginLog.Verbose($"  Choice {i} → {text}");
-            if (text == desiredText)
+            if (addonSelectString->AtkUnitBase.AtkValues[i].Type == ValueType.String)
             {
-                _pluginLog.Information($"Selecting choice {i} ({text})");
-                addonSelectString->AtkUnitBase.FireCallbackInt(i);
+                int choice = i - 7;
+                string? text = addonSelectString->AtkUnitBase.AtkValues[i].ReadAtkString();
+                _pluginLog.Verbose($"  Choice {choice} → {text}");
+                if (text == desiredText)
+                {
+                    _pluginLog.Information($"Selecting choice {choice} ({text})");
+                    addonSelectString->AtkUnitBase.FireCallbackInt(choice);
 
-                followUp();
-                return true;
+                    followUp();
+                    return true;
+                }
             }
         }
 
