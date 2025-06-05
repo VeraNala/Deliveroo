@@ -211,7 +211,7 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig<Configura
         }
     }
 
-    public override unsafe void Draw()
+    public override unsafe void DrawContent()
     {
         GrandCompany grandCompany = _gameFunctions.GetGrandCompany();
         if (grandCompany == GrandCompany.None)
