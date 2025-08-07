@@ -12,7 +12,7 @@ partial class DeliverooPlugin
 {
     private unsafe void SelectStringPostSetup(AddonEvent type, AddonArgs args)
     {
-        AddonSelectString* addonSelectString = (AddonSelectString*)args.Addon;
+        AddonSelectString* addonSelectString = (AddonSelectString*)args.Addon.Address;
         SelectStringPostSetup(addonSelectString, CurrentStage);
     }
 

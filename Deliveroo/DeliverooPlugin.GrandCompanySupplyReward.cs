@@ -17,7 +17,7 @@ partial class DeliverooPlugin
         bool quickTurnIn = CurrentStage == Stage.Stopped && _configuration.QuickTurnInKey != VirtualKey.NO_KEY && _keyState[_configuration.QuickTurnInKey];
         if (CurrentStage == Stage.TurnInSelected || quickTurnIn)
         {
-            AddonGrandCompanySupplyReward* addonSupplyReward = (AddonGrandCompanySupplyReward*)args.Addon;
+            AddonGrandCompanySupplyReward* addonSupplyReward = (AddonGrandCompanySupplyReward*)args.Addon.Address;
 
             string? itemName = addonSupplyReward->AtkUnitBase.AtkValues[4].ReadAtkString();
             if (itemName != null && _itemCache.GetItemIdFromItemName(itemName)
