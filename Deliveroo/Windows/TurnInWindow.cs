@@ -16,7 +16,7 @@ using Dalamud.Plugin.Services;
 using Deliveroo.GameData;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
-using ImGuiNET;
+using Dalamud.Bindings.ImGui;
 using LLib;
 using LLib.ImGui;
 
@@ -557,7 +557,7 @@ internal sealed class TurnInWindow : LWindow, IPersistableWindowConfig<Configura
         {
             if (icon != null)
             {
-                ImGui.Image(icon.ImGuiHandle, new Vector2(ImGui.GetFrameHeight()));
+                ImGui.Image(icon.Handle, new Vector2(ImGui.GetFrameHeight()));
                 ImGui.SameLine(0, 3);
             }
         }

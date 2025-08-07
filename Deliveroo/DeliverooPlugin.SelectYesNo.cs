@@ -13,7 +13,7 @@ partial class DeliverooPlugin
     {
         _pluginLog.Verbose("SelectYesNo post-setup");
 
-        AddonSelectYesno* addonSelectYesNo = (AddonSelectYesno*)args.Addon;
+        AddonSelectYesno* addonSelectYesNo = (AddonSelectYesno*)args.Addon.Address;
         string text = MemoryHelper.ReadSeString(&addonSelectYesNo->PromptText->NodeText).ToString().ReplaceLineEndings("");
         _pluginLog.Verbose($"YesNo prompt: '{text}'");
 

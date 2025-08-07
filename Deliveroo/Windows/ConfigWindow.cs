@@ -12,7 +12,7 @@ using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using Dalamud.Utility;
 using Deliveroo.GameData;
-using ImGuiNET;
+using Dalamud.Bindings.ImGui;
 using LLib;
 using LLib.ImGui;
 
@@ -120,7 +120,7 @@ internal sealed class ConfigWindow : LWindow, IPersistableWindowConfig
 
                         if (ImGui.BeginDragDropSource())
                         {
-                            ImGui.SetDragDropPayload("DeliverooDragDrop", nint.Zero, 0);
+                            ImGui.SetDragDropPayload("DeliverooDragDrop", ReadOnlySpan<byte>.Empty, 0);
                             _dragDropSource = purchaseOption;
 
                             ImGui.EndDragDropSource();
@@ -129,7 +129,7 @@ internal sealed class ConfigWindow : LWindow, IPersistableWindowConfig
                         if (ImGui.BeginDragDropTarget())
                         {
                             if (_dragDropSource != null &&
-                                ImGui.AcceptDragDropPayload("DeliverooDragDrop").NativePtr != null)
+                                ImGui.AcceptDragDropPayload("DeliverooDragDrop").Handle != null)
                             {
                                 itemToAdd = _dragDropSource;
                                 indexToAdd = i;
@@ -144,7 +144,7 @@ internal sealed class ConfigWindow : LWindow, IPersistableWindowConfig
                         if (ImGui.BeginPopup($"###ctx{i}"))
                         {
                             bool sameQuantityForAllLists = purchaseOption.SameQuantityForAllLists;
-                            if (ImGui.MenuItem("Use same quantity for global and character-specific lists", null,
+                            if (ImGui.MenuItem("Use same quantity for global and character-specific lists",
                                     ref sameQuantityForAllLists))
                             {
                                 purchaseOption.SameQuantityForAllLists = sameQuantityForAllLists;
@@ -161,7 +161,7 @@ internal sealed class ConfigWindow : LWindow, IPersistableWindowConfig
                         {
                             ImGui.SameLine(0, 0);
                             ImGui.SetCursorPos(pos);
-                            ImGui.Image(icon.ImGuiHandle, iconSize);
+                            ImGui.Image(icon.Handle, iconSize);
                         }
                     }
 
@@ -206,7 +206,7 @@ internal sealed class ConfigWindow : LWindow, IPersistableWindowConfig
                     {
                         if (icon != null)
                         {
-                            ImGui.Image(icon.ImGuiHandle, new Vector2(ImGui.GetFrameHeight()));
+                            ImGui.Image(icon.Handle, new Vector2(ImGui.GetFrameHeight()));
                             ImGui.SameLine();
                             ImGui.SetCursorPosY(ImGui.GetCursorPosY() + ImGui.GetStyle().FramePadding.X);
                         }
