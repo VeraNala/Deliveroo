@@ -1,4 +1,4 @@
-﻿using System.Data;
+using System.Data;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.RegularExpressions;
 using Dalamud.Game.Text;
@@ -46,6 +46,8 @@ internal sealed class GameStrings
         : IQuestDialogueText, IExcelRow<ComDefGrandCompanyOfficer>
     {
         public uint RowId => row;
+        public ExcelPage ExcelPage => page;
+        public uint RowOffset => offset;
 
         public ReadOnlySeString Key => page.ReadString(offset, offset);
         public ReadOnlySeString Value => page.ReadString(offset + 4, offset);

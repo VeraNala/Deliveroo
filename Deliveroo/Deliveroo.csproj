@@ -1,6 +1,7 @@
-﻿<Project Sdk="Dalamud.NET.Sdk/13.0.0">
+<Project Sdk="Dalamud.NET.Sdk/14.0.1">
     <PropertyGroup>
-        <Version>7.4</Version>
+        <Version>7.5</Version>
+		<TargetFramework>net10.0-windows7.0</TargetFramework>
         <OutputPath>dist</OutputPath>
     </PropertyGroup>
 
